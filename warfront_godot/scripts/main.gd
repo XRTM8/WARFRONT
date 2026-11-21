@@ -26,6 +26,9 @@ var target_zoom: Vector2 = Vector2(1.0, 1.0)
 var is_dragging_pan: bool = false
 var pan_drag_start: Vector2 = Vector2.ZERO
 
+var control_groups: Dictionary = {}
+var last_group_tap_time: Dictionary = {}
+
 func _ready() -> void:
 	sim = Simulation.new("kirkuk", 104729)
 	sim.sound_triggered.connect(sound.play_sound)
@@ -42,6 +45,7 @@ func _ready() -> void:
 	hud.audio_toggle_requested.connect(_on_audio_toggle_requested)
 	hud.commander_power_requested.connect(_on_commander_power_requested)
 	hud.place_structure_requested.connect(_on_place_structure_requested)
+	hud.micro_action_requested.connect(_on_micro_action_requested)
 	
 	# Restrict camera within valid map bounds (eliminates any gray void)
 	camera.limit_left = 0
@@ -75,6 +79,18 @@ func _on_train_requested(kind: String) -> void:
 
 func _on_place_structure_requested(kind: String) -> void:
 	sim.build_mode = "none" if sim.build_mode == kind else kind
+
+func _on_micro_action_requested(action_id: String) -> void:
+	if action_id == "attack_move":
+		sim.attack_move_mode = not sim.attack_move_mode
+		if sim.attack_move_mode:
+			sound.play_sound("order_attack")
+	elif action_id == "stop":
+		sim.stop_selected_units()
+	elif action_id == "hold":
+		sim.set_selected_stance("hold_ground")
+	elif action_id == "retreat":
+		sim.retreat_selected_units()
 
 func _on_bridge_rebuild_requested() -> void:
 	for b in sim.map["bridges"]:
@@ -189,16 +205,53 @@ func _unhandled_input(event: InputEvent) -> void:
 	if hud.modal.is_paused:
 		return
 
-	# Unit Training Hotkeys
+	# Unit Training Hotkeys & RTS Tactical Control Commands
 	if event is InputEventKey and event.is_pressed() and not event.is_echo():
-		if event.keycode == KEY_1:
-			sim.train_player_unit("scout")
-		elif event.keycode == KEY_2:
-			sim.train_player_unit("tank")
-		elif event.keycode == KEY_3:
-			sim.train_player_unit("behemoth")
-		elif event.keycode == KEY_4:
-			sim.train_player_unit("artillery")
+		if event.keycode == KEY_A:
+			_on_micro_action_requested("attack_move")
+		elif event.keycode == KEY_S:
+			_on_micro_action_requested("stop")
+		elif event.keycode == KEY_H:
+			_on_micro_action_requested("hold")
+		elif event.keycode == KEY_R:
+			_on_micro_action_requested("retreat")
+		elif event.keycode in [KEY_1, KEY_2, KEY_3, KEY_4]:
+			var grp_idx = event.keycode - KEY_0
+			if Input.is_key_pressed(KEY_CTRL):
+				var grp_ids: Array[int] = []
+				for u in sim.units:
+					if u["alive"] and u["faction"] == "player" and u["selected"] and u["kind"] != "truck" and u["kind"] != "turret":
+						grp_ids.push_back(u["id"])
+				control_groups[grp_idx] = grp_ids
+				sound.play_sound("unit_select")
+				sim.push_event("group_bound", "good")
+			elif control_groups.has(grp_idx) and not control_groups[grp_idx].is_empty():
+				var found_any = false
+				var grp_center = Vector2.ZERO
+				var active_count = 0
+				for u in sim.units:
+					if u["alive"] and u["faction"] == "player" and u["kind"] != "truck" and u["kind"] != "turret":
+						var in_grp = control_groups[grp_idx].has(u["id"])
+						u["selected"] = in_grp
+						if in_grp:
+							found_any = true
+							grp_center += Vector2(u["x"], u["y"])
+							active_count += 1
+				if found_any:
+					sound.play_sound("unit_select")
+					var now = sim.sim_time
+					if now - last_group_tap_time.get(grp_idx, -99.0) < 0.35 and active_count > 0:
+						target_camera_pos = grp_center / float(active_count)
+					last_group_tap_time[grp_idx] = now
+			else:
+				if event.keycode == KEY_1:
+					sim.train_player_unit("scout")
+				elif event.keycode == KEY_2:
+					sim.train_player_unit("tank")
+				elif event.keycode == KEY_3:
+					sim.train_player_unit("behemoth")
+				elif event.keycode == KEY_4:
+					sim.train_player_unit("artillery")
 		elif event.keycode == KEY_5:
 			sim.train_player_unit("helicopter")
 		elif event.keycode == KEY_6:
@@ -248,6 +301,13 @@ func _unhandled_input(event: InputEvent) -> void:
 					sim.commander_targeting_power = ""
 					return
 
+				# Attack-Move tactical targeting execution
+				if sim.attack_move_mode:
+					var shift = Input.is_key_pressed(KEY_SHIFT)
+					sim.issue_player_attack_move(world_pos.x, world_pos.y, shift)
+					sim.attack_move_mode = false
+					return
+
 				# Base Building placement mode
 				if sim.build_mode != "none" and Constants.BUILDING_SPECS.has(sim.build_mode):
 					var placed = sim.place_player_structure(sim.build_mode, world_pos.x, world_pos.y)
@@ -280,7 +340,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					if sel_count > 0:
 						sound.play_sound("order_click")
 					
-		# Right Click: Command Order (Move, Attack, Demolish) or Cancel Targeting/Build Mode
+		# Right Click: Command Order (Move, Attack, Demolish) or Cancel Targeting/Build/Attack-Move Mode
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.is_pressed():
 			if sim.commander_targeting_power != "":
 				sim.commander_targeting_power = ""
@@ -288,8 +348,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			if sim.build_mode != "none":
 				sim.build_mode = "none"
 				return
+			if sim.attack_move_mode:
+				sim.attack_move_mode = false
+				return
 			var world_pos = get_global_mouse_position()
-			var issued = sim.issue_player_command(world_pos.x, world_pos.y)
+			var shift = Input.is_key_pressed(KEY_SHIFT)
+			var issued = sim.issue_player_command(world_pos.x, world_pos.y, shift)
 			if issued:
 				sound.play_sound("order_click")
 

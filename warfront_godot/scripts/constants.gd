@@ -12,6 +12,13 @@ const BRIDGE_MAX_HP: float = 420.0
 const HQ_MAX_HP: float = 1600.0
 const TRUCK_CARGO_CAPACITY: int = 55
 
+const TACTICAL_STANCES: Dictionary = {
+	"guard": { "id": "guard", "name": "حراسة ودفاع", "leash_dist": 140.0, "icon": "🛡️" },
+	"attack_move": { "id": "attack_move", "name": "اشتباك وتقدم", "leash_dist": 280.0, "icon": "⚔️" },
+	"hold_ground": { "id": "hold_ground", "name": "ثبات وتمركز", "leash_dist": 0.0, "icon": "🛑" },
+	"retreat": { "id": "retreat", "name": "انسحاب تكتيكي", "leash_dist": 9999.0, "icon": "💨" }
+}
+
 const UNIT_SPECS: Dictionary = {
 	"truck": {
 		"kind": "truck",

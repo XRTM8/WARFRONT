@@ -18,7 +18,13 @@ var stat_spd_label: Label = null
 var stat_kills_label: Label = null
 var status_hint_label: Label = null
 
-func build_dossier(parent: Control) -> void:
+var micro_actions_box: HBoxContainer = null
+var micro_buttons: Dictionary = {}
+var micro_callback: Callable = Callable()
+
+func build_dossier(parent: Control, on_micro_action: Callable = Callable()) -> void:
+	micro_callback = on_micro_action
+	
 	dossier_panel = PanelContainer.new()
 	var dos_style = StyleBoxFlat.new()
 	dos_style.bg_color = Color(0.07, 0.09, 0.06, 0.96)
@@ -36,7 +42,7 @@ func build_dossier(parent: Control) -> void:
 	dos_style.content_margin_top = 6
 	dos_style.content_margin_bottom = 6
 	dossier_panel.add_theme_stylebox_override("panel", dos_style)
-	dossier_panel.custom_minimum_size = Vector2(248, 118)
+	dossier_panel.custom_minimum_size = Vector2(256, 122)
 	parent.add_child(dossier_panel)
 	
 	var main_hbox = HBoxContainer.new()
@@ -53,11 +59,11 @@ func build_dossier(parent: Control) -> void:
 	p_style.border_width_top = 1
 	p_style.border_width_bottom = 1
 	portrait_frame.add_theme_stylebox_override("panel", p_style)
-	portrait_frame.custom_minimum_size = Vector2(88, 106)
+	portrait_frame.custom_minimum_size = Vector2(88, 110)
 	main_hbox.add_child(portrait_frame)
 	
 	portrait_rect = TextureRect.new()
-	portrait_rect.custom_minimum_size = Vector2(84, 102)
+	portrait_rect.custom_minimum_size = Vector2(84, 106)
 	portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait_frame.add_child(portrait_rect)
@@ -65,7 +71,7 @@ func build_dossier(parent: Control) -> void:
 	# Right: Telemetry & Dossier Info
 	var info_vbox = VBoxContainer.new()
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_vbox.add_theme_constant_override("separation", 3)
+	info_vbox.add_theme_constant_override("separation", 2)
 	main_hbox.add_child(info_vbox)
 	
 	# Header (Unit Name + Rank)
@@ -121,7 +127,7 @@ func build_dossier(parent: Control) -> void:
 	hp_header.add_child(hp_label)
 	
 	hp_bar = ProgressBar.new()
-	hp_bar.custom_minimum_size = Vector2(130, 6)
+	hp_bar.custom_minimum_size = Vector2(130, 5)
 	hp_bar.show_percentage = false
 	var hp_fill = StyleBoxFlat.new()
 	hp_fill.bg_color = Color("#73d65e")
@@ -148,13 +154,63 @@ func build_dossier(parent: Control) -> void:
 	
 	stat_kills_label = _create_stat_badge("🎖️", "0")
 	stats_grid.add_child(stat_kills_label)
-	
+
+	# Micro Tactical Actions Tray (Attack-Move, Stop, Hold Ground, Retreat)
+	micro_actions_box = HBoxContainer.new()
+	micro_actions_box.add_theme_constant_override("separation", 3)
+	info_vbox.add_child(micro_actions_box)
+
+	var actions = [
+		{ "id": "attack_move", "label": "[A] اشتباك", "color": Color("#ef4444") },
+		{ "id": "stop", "label": "[S] توقف", "color": Color("#eab308") },
+		{ "id": "hold", "label": "[H] ثبات", "color": Color("#3b82f6") },
+		{ "id": "retreat", "label": "[R] تراجع", "color": Color("#a855f7") }
+	]
+	for act in actions:
+		var btn = _create_micro_button(act["id"], act["label"], act["color"])
+		micro_actions_box.add_child(btn)
+		micro_buttons[act["id"]] = btn
+
 	# Status Hint
 	status_hint_label = Label.new()
 	status_hint_label.text = "اسحب بالماوس للتحديد · زر أيمن للأمر"
 	status_hint_label.add_theme_color_override("font_color", Color("#71717a"))
 	status_hint_label.add_theme_font_size_override("font_size", 8)
 	info_vbox.add_child(status_hint_label)
+
+func _create_micro_button(act_id: String, text: String, col: Color) -> Button:
+	var btn = Button.new()
+	btn.text = text
+	btn.custom_minimum_size = Vector2(36, 18)
+	
+	var style_norm = StyleBoxFlat.new()
+	style_norm.bg_color = Color(0.10, 0.13, 0.09, 0.95)
+	style_norm.border_color = Color(col.r, col.g, col.b, 0.45)
+	style_norm.border_width_left = 1
+	style_norm.border_width_right = 1
+	style_norm.border_width_top = 1
+	style_norm.border_width_bottom = 1
+	style_norm.corner_radius_top_left = 2
+	style_norm.corner_radius_top_right = 2
+	style_norm.corner_radius_bottom_left = 2
+	style_norm.corner_radius_bottom_right = 2
+	style_norm.content_margin_left = 3
+	style_norm.content_margin_right = 3
+	style_norm.content_margin_top = 1
+	style_norm.content_margin_bottom = 1
+	
+	btn.add_theme_stylebox_override("normal", style_norm)
+	btn.add_theme_stylebox_override("hover", style_norm)
+	btn.add_theme_stylebox_override("pressed", style_norm)
+	btn.add_theme_stylebox_override("focus", style_norm)
+	btn.add_theme_color_override("font_color", col)
+	btn.add_theme_font_size_override("font_size", 8)
+	
+	btn.pressed.connect(func():
+		if micro_callback.is_valid():
+			micro_callback.call(act_id)
+	)
+	return btn
 
 func _create_stat_badge(icon: String, val: String) -> Label:
 	var lbl = Label.new()
@@ -180,7 +236,6 @@ func update(sim) -> void:
 		role_chip_label.text = "توجيهات العمليات الميدانية"
 		role_chip_label.add_theme_color_override("font_color", Color("#84cc16"))
 		
-		# Show allied force strength
 		var active_troops = 0
 		for u in sim.units:
 			if u["alive"] and u["faction"] == "player":
@@ -188,6 +243,8 @@ func update(sim) -> void:
 		hp_bar.value = 100.0
 		hp_label.text = "%d وحدات" % active_troops
 		stats_grid.visible = false
+		if micro_actions_box != null:
+			micro_actions_box.visible = false
 		status_hint_label.text = "اسحب بالماوس للتحديد · زر أيمن للتحريك"
 	elif selected_units.size() == 1:
 		var u = selected_units[0]
@@ -236,8 +293,28 @@ func update(sim) -> void:
 		stat_spd_label.text = "⚡ %d" % int(round(u["speed"]))
 		stat_kills_label.text = "🎖️ %d" % u["kills"]
 		
-		var stance_ar = "هجوم" if u["stance"] == "attack" else ("تحرك" if u["stance"] == "move" else "دفاع")
-		status_hint_label.text = "الحالة الميدانية: %s · الخبرة: %d XP" % [stance_ar, int(round(u["xp"]))]
+		if micro_actions_box != null:
+			micro_actions_box.visible = true
+			# Highlight active button
+			for act_k in micro_buttons:
+				var b: Button = micro_buttons[act_k]
+				var is_active = false
+				if act_k == "attack_move" and (sim.attack_move_mode or u["stance"] == "attack_move"):
+					is_active = true
+				elif act_k == "hold" and u["stance"] == "hold_ground":
+					is_active = true
+				elif act_k == "retreat" and u["stance"] == "retreat":
+					is_active = true
+				b.modulate = Color(1.3, 1.3, 1.3, 1.0) if is_active else Color(1.0, 1.0, 1.0, 0.75)
+		
+		var stance_names = {
+			"guard": "حراسة ودفاع",
+			"attack_move": "اشتباك وتقدم",
+			"hold_ground": "ثبات وتمركز",
+			"retreat": "انسحاب تكتيكي"
+		}
+		var s_name = stance_names.get(u["stance"], u["stance"])
+		status_hint_label.text = "التموضع: %s · الخبرة: %d XP" % [s_name, int(round(u["xp"]))]
 	else:
 		# Multi-selection formation
 		portrait_rect.texture = UnitPortraits.get_portrait("tank", 84, 46)
@@ -258,8 +335,15 @@ func update(sim) -> void:
 		hp_label.text = "%d%% متوسط الصحة" % int(round(avg_pct))
 		
 		stats_grid.visible = true
-		stat_dmg_label.text = "⚔️ جماعي"
+		stat_dmg_label.text = "⚔️ تشكيل"
 		stat_rng_label.text = "🎯 منسق"
-		stat_spd_label.text = "⚡ مناورة"
+		stat_spd_label.text = "⚡ نسق"
 		stat_kills_label.text = "🎖️ %d" % total_kills
-		status_hint_label.text = "أوامر المجموعة: زر أيمن للتحرك المشترك أو الاشتباك"
+		
+		if micro_actions_box != null:
+			micro_actions_box.visible = true
+			for act_k in micro_buttons:
+				var b: Button = micro_buttons[act_k]
+				b.modulate = Color(1.3, 1.3, 1.3, 1.0) if (act_k == "attack_move" and sim.attack_move_mode) else Color(1.0, 1.0, 1.0, 0.75)
+
+		status_hint_label.text = "تشكيل قتالي منسق · اضغط Shift للمسارات المتتابعة"

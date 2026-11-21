@@ -55,6 +55,7 @@ var hitstop_timer: float = 0.0
 var bridges_destroyed_by_player: int = 0
 var enemy_trucks_destroyed: int = 0
 var build_mode: String = "none" # "none", "turret"
+var attack_move_mode: bool = false
 var order_pulse: Dictionary = {} # { x, y, color, timer }
 
 var ai_decision_timer: float = 5.0
@@ -225,8 +226,20 @@ func reroute_stranded_trucks() -> void:
 func select_units_in_box(rect: Rect2, additive: bool = false) -> int:
 	return SimUnits.select_units_in_box(self, rect, additive)
 
-func issue_player_command(world_x: float, world_y: float) -> bool:
-	return SimUnits.issue_player_command(self, world_x, world_y)
+func issue_player_command(world_x: float, world_y: float, shift_queued: bool = false) -> bool:
+	return SimUnits.issue_player_command(self, world_x, world_y, shift_queued)
+
+func issue_player_attack_move(world_x: float, world_y: float, shift_queued: bool = false) -> bool:
+	return SimUnits.issue_player_attack_move(self, world_x, world_y, shift_queued)
+
+func stop_selected_units() -> void:
+	SimUnits.stop_selected_units(self)
+
+func set_selected_stance(stance: String) -> void:
+	SimUnits.set_selected_stance(self, stance)
+
+func retreat_selected_units() -> void:
+	SimUnits.retreat_selected_units(self)
 
 func award_unit_xp(unit: Dictionary, amount: float) -> bool:
 	return SimCombat.award_unit_xp(self, unit, amount)

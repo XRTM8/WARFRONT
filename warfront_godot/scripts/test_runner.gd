@@ -21,6 +21,7 @@ func _init() -> void:
 	test_tactical_ai_and_waypoints()
 	test_commander_powers_and_gameplay_loop()
 	test_base_building_and_structures()
+	test_unit_ai_and_advanced_controls()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -351,3 +352,102 @@ func test_base_building_and_structures() -> void:
 	assert(sim.structures[3]["kind"] == "sandbag_wall")
 	
 	print("✔ Test 10: Complete Base Building overhaul (Footprints, Scaffolding, Repair Aura, Turrets, Sandbags) passed.")
+
+func test_unit_ai_and_advanced_controls() -> void:
+	var sim = Simulation.new("kirkuk", 104729)
+	var SimUnits = preload("res://scripts/sim_units.gd")
+	
+	# 1. Soft Crowd Separation (Boids anti-stacking test)
+	var t1 = sim.spawn_unit("player", "tank", 500.0, 500.0)
+	var t2 = sim.spawn_unit("player", "tank", 502.0, 500.0)
+	var initial_dist = Vector2(t1["x"], t1["y"]).distance_to(Vector2(t2["x"], t2["y"]))
+	assert(initial_dist < 10.0, "Units spawned very close together")
+	
+	# Step simulation - separation repulsion forces should push them apart
+	for _i in range(10):
+		sim.step(0.05)
+	var separated_dist = Vector2(t1["x"], t1["y"]).distance_to(Vector2(t2["x"], t2["y"]))
+	assert(separated_dist > initial_dist, "Soft separation force must prevent unit overlapping and push units apart")
+	
+	# 2. Tactical Echelon Formations
+	var behemoth = sim.spawn_unit("player", "behemoth", 400.0, 400.0)
+	var scout = sim.spawn_unit("player", "scout", 410.0, 400.0)
+	var mlrs = sim.spawn_unit("player", "artillery", 420.0, 400.0)
+	var target_dest = Vector2(800.0, 400.0)
+	var slots = SimUnits.calculate_formation_positions([behemoth, scout, mlrs], target_dest)
+	
+	assert(slots.has(behemoth["id"]) and slots.has(scout["id"]) and slots.has(mlrs["id"]), "All units must receive tactical slots")
+	# Behemoth (vanguard) should be closer to target destination than artillery (rearguard)
+	assert(slots[behemoth["id"]].x > slots[mlrs["id"]].x, "Vanguard heavy armor must form frontline ahead of backline artillery")
+	
+	# 3. Attack-Move Execution & Engagement
+	var atk_tank = sim.spawn_unit("player", "tank", 600.0, 600.0)
+	atk_tank["selected"] = true
+	sim.issue_player_attack_move(900.0, 600.0)
+	assert(atk_tank["stance"] == "attack_move", "Unit stance must be attack_move")
+	
+	# Spawn enemy along the march path
+	var enemy_scout = sim.spawn_unit("enemy", "scout", 720.0, 600.0)
+	var enemy_hp_start = enemy_scout["hp"]
+	for _i in range(25):
+		sim.step(0.05)
+	assert(enemy_scout["hp"] < enemy_hp_start, "Attack-move unit must acquire and engage hostile encountered along its route")
+	
+	# 4. Shift-Queued Waypoints
+	for u in sim.units:
+		u["selected"] = false
+	var queue_scout = sim.spawn_unit("player", "scout", 300.0, 300.0)
+	queue_scout["selected"] = true
+	sim.issue_player_command(400.0, 300.0, false)
+	assert(queue_scout["targetPos"] != null)
+	assert(queue_scout["waypointQueue"].is_empty())
+	
+	# Append 2nd and 3rd waypoints via Shift-queue
+	sim.issue_player_command(400.0, 450.0, true)
+	sim.issue_player_command(300.0, 450.0, true)
+	assert(queue_scout["waypointQueue"].size() == 2, "Shift-queued commands must append to waypointQueue")
+	
+	# Advance scout to 1st waypoint
+	queue_scout["x"] = 398.0
+	queue_scout["y"] = 300.0
+	sim.step(0.05)
+	assert(queue_scout["waypointQueue"].size() == 1, "Reaching waypoint must pop next waypoint from queue")
+	assert(queue_scout["targetPos"] == Vector2(400.0, 450.0), "Next target must become the queued destination")
+	
+	# 5. Hold Ground Stance
+	var hold_tank = sim.spawn_unit("player", "tank", 700.0, 700.0)
+	hold_tank["selected"] = true
+	sim.set_selected_stance("hold_ground")
+	assert(hold_tank["stance"] == "hold_ground")
+	assert(hold_tank["targetPos"] == null)
+	
+	var distant_enemy = sim.spawn_unit("enemy", "tank", 1000.0, 700.0)
+	for _i in range(10):
+		sim.step(0.05)
+	assert(Vector2(hold_tank["x"], hold_tank["y"]).distance_to(Vector2(700.0, 700.0)) < 2.0, "Hold ground unit must not leave its anchor position")
+	
+	# 6. Smart Target Prioritization (Finishing off wounded threats)
+	var hunter = sim.spawn_unit("player", "artillery", 500.0, 500.0)
+	var full_tank = sim.spawn_unit("enemy", "tank", 600.0, 500.0)
+	var wounded_behemoth = sim.spawn_unit("enemy", "behemoth", 620.0, 510.0)
+	wounded_behemoth["hp"] = 25.0 # critically wounded
+	
+	var chosen = SimUnits.select_smart_target(sim, hunter)
+	assert(chosen["id"] == wounded_behemoth["id"], "Smart targeting matrix must prioritize high-threat critically wounded target for rapid elimination")
+	
+	# 7. Stop Command
+	atk_tank["targetPos"] = Vector2(800.0, 800.0)
+	atk_tank["selected"] = true
+	sim.stop_selected_units()
+	assert(atk_tank["targetPos"] == null, "Stop command must clear target position immediately")
+	assert(atk_tank["waypointQueue"].is_empty(), "Stop command must clear waypoint queue")
+	assert(atk_tank["stance"] == "guard", "Stop command must reset stance to guard")
+	
+	# 8. Tactical Retreat
+	atk_tank["selected"] = true
+	sim.retreat_selected_units()
+	assert(atk_tank["stance"] == "retreat", "Retreat command must set retreat stance")
+	sim.step(0.05)
+	assert(atk_tank["targetPos"] != null, "Retreating unit must auto-navigate to nearest sanctuary HQ or depot")
+	
+	print("✔ Test 11: Unit AI & Advanced Controls (Flocking, Formations, A-Move, Queued Waypoints, Stances, Smart Priority) passed.")

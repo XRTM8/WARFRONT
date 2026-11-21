@@ -21,6 +21,7 @@ signal audio_toggle_requested(muted: bool)
 signal pause_toggled()
 signal commander_power_requested(power_id: String)
 signal place_structure_requested(kind: String)
+signal micro_action_requested(action_id: String)
 
 var sim: Simulation = null
 
@@ -63,6 +64,7 @@ func _on_event_pushed(key: String, _tone: String) -> void:
 		"invalid_placement": "موقع غير صالح للإنشاء! يجب البناء داخل نطاق القاعدة بعيداً عن العوائق",
 		"structure_placed": "بدء أعمال التدعيم والإنشاء في الموقع المحدد!",
 		"structure_ready": "اكتمل البناء! المنشأة الهندسية دخلت الخدمة العملياتية فوراً",
+		"group_bound": "تم تعيين وتحديث مجموعة السيطرة والتحكم التكتيكي",
 		"victory": "انتصار حاسم! سقط المقر القيادي للعدو",
 		"defeat": "هزيمة! تدمر المقر القيادي لقواتك"
 	}
@@ -171,7 +173,10 @@ func build_tactical_hud() -> void:
 	bottom_layout.add_child(bot_spacer)
 
 	# Tactical Dossier Card
-	dossier.build_dossier(bottom_layout)
+	dossier.build_dossier(
+		bottom_layout,
+		func(act: String): micro_action_requested.emit(act)
+	)
 
 	# Interactive Tactical Minimap Frame
 	minimap_control = minimap.build_minimap(

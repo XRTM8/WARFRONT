@@ -24,6 +24,8 @@ static func spawn_unit(sim, faction: String, kind: String, x: float, y: float) -
 		"angle": 0.0 if faction == "player" else PI,
 		"turretAngle": 0.0 if faction == "player" else PI,
 		"targetPos": null,
+		"waypointQueue": [] as Array[Vector2],
+		"guardPos": Vector2(x, y),
 		"targetEntityId": null,
 		"targetBridgeId": null,
 		"targetHqFaction": null,
@@ -37,6 +39,7 @@ static func spawn_unit(sim, faction: String, kind: String, x: float, y: float) -
 		"promoFlash": 0.0,
 		"recoil": 0.0,
 		"cooldown": 0.0,
+		"smokeCooldown": 0.0,
 		"treadAccum": 0.0,
 		"cargoOil": 0.0,
 		"truckState": "idle",
@@ -88,6 +91,8 @@ static func update_units(sim, dt: float) -> void:
 			u["promoFlash"] = max(0.0, u["promoFlash"] - dt)
 		if u["cooldown"] > 0.0:
 			u["cooldown"] = max(0.0, u["cooldown"] - dt)
+		if u.get("smokeCooldown", 0.0) > 0.0:
+			u["smokeCooldown"] = max(0.0, u["smokeCooldown"] - dt)
 			
 		# Passive veterancy rank 2 / 3 healing
 		if u["rank"] >= 2 and u["hp"] < u["maxHp"]:
@@ -106,31 +111,117 @@ static func update_units(sim, dt: float) -> void:
 			update_combat_unit(sim, u, dt)
 
 static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
-	# Unit movement with smart river & obstacle navigation
-	if u["targetPos"] != null and u["speed"] > 0.0:
+	var is_airborne = (u["kind"] == "helicopter")
+	var cur_vec = Vector2(u["x"], u["y"])
+
+	# --------------------------------------------------------------------------
+	# 1. Soft Crowd Flocking & Separation (Anti-Blob Physics)
+	# --------------------------------------------------------------------------
+	var sep_push = Vector2.ZERO
+	for other in sim.units:
+		if other["id"] == u["id"] or not other["alive"]:
+			continue
+		var other_is_air = (other["kind"] == "helicopter")
+		if is_airborne != other_is_air:
+			continue # Air and land do not push each other
+		var delta_pos = cur_vec - Vector2(other["x"], other["y"])
+		var min_dist = u["radius"] + other["radius"] + 4.0
+		var dist_sq = delta_pos.length_squared()
+		if dist_sq < min_dist * min_dist and dist_sq > 0.001:
+			var d = sqrt(dist_sq)
+			var push_mag = (1.0 - d / min_dist) * (26.0 if u["targetPos"] == null else 40.0)
+			sep_push += (delta_pos / d) * push_mag
+
+	if sep_push != Vector2.ZERO:
+		var nx = u["x"] + sep_push.x * dt
+		var ny = u["y"] + sep_push.y * dt
+		if is_airborne or Pathfinding.is_point_passable_for_land(sim.map, nx, ny):
+			u["x"] = nx
+			u["y"] = ny
+			cur_vec = Vector2(nx, ny)
+
+	# --------------------------------------------------------------------------
+	# 2. Smart Target Selection & Threat Assessment
+	# --------------------------------------------------------------------------
+	var enemy_target = select_smart_target(sim, u)
+	var has_hostile_in_range = (enemy_target != null)
+
+	# --------------------------------------------------------------------------
+	# 3. Tactical Stance Handling
+	# --------------------------------------------------------------------------
+	# Stance A: Hold Ground (strict stationary firing bunker)
+	if u["stance"] == "hold_ground":
+		u["targetPos"] = null
+		u["waypointQueue"].clear()
+
+	# Stance B: Tactical Retreat
+	elif u["stance"] == "retreat":
+		# Auto-locate nearest friendly Repair Depot or HQ
+		var retreat_dest = Vector2(sim.map["playerHQ"]["x"], sim.map["playerHQ"]["y"]) if u["faction"] == "player" else Vector2(sim.map["enemyHQ"]["x"], sim.map["enemyHQ"]["y"])
+		var best_depot_dist = INF
+		for s in sim.structures:
+			if s["faction"] == u["faction"] and s["kind"] == "repair_depot" and s["status"] == "ready":
+				var d_depot = cur_vec.distance_to(Vector2(s["x"], s["y"]))
+				if d_depot < best_depot_dist:
+					best_depot_dist = d_depot
+					retreat_dest = Vector2(s["x"], s["y"])
+					
+		u["targetPos"] = retreat_dest
+		# Deploy defensive tactical smoke screen while retreating
+		if u.get("smokeCooldown", 0.0) <= 0.0:
+			u["smokeCooldown"] = 0.65
+			sim.spawn_particle("smoke", u["x"], u["y"], randf_range(-6, 6), -10.0, 6.0, 22.0, 0.95, Color(0.85, 0.85, 0.88, 0.65))
+			
+		# Check if safely arrived at sanctuary
+		if cur_vec.distance_to(retreat_dest) <= 55.0:
+			u["stance"] = "guard"
+			u["targetPos"] = null
+			u["guardPos"] = cur_vec
+
+	# Stance C: Attack-Move (march forward, but halt to engage any threats)
+	var is_holding_fire_position = false
+	if u["stance"] == "attack_move" and has_hostile_in_range:
+		# Temporarily halt movement to establish a firing line
+		is_holding_fire_position = true
+
+	# --------------------------------------------------------------------------
+	# 4. Waypoint & Movement Execution
+	# --------------------------------------------------------------------------
+	# Queue transition: if current target reached or idle, pop next queued waypoint
+	if u["targetPos"] == null and u["waypointQueue"].size() > 0:
+		u["targetPos"] = u["waypointQueue"].pop_front()
+
+	if u["targetPos"] != null and u["speed"] > 0.0 and not is_holding_fire_position:
 		var target_vec: Vector2 = u["targetPos"]
 		var goal_vec = target_vec
-		var is_airborne = u["kind"] == "helicopter"
 		
-		# If land unit target is across the river, steer toward the nearest intact bridge
+		# Land river & bridge navigation
 		if not is_airborne and Pathfinding.is_opposite_river_side(sim.map, u["x"], target_vec.x):
 			var bridge = Pathfinding.find_nearest_intact_bridge(sim.map, u["x"], u["y"], target_vec.x, target_vec.y)
 			if not bridge.is_empty():
-				var dist_to_b = Vector2(bridge["x"], bridge["y"]).distance_to(Vector2(u["x"], u["y"]))
+				var dist_to_b = Vector2(bridge["x"], bridge["y"]).distance_to(cur_vec)
 				if dist_to_b > 44.0:
 					goal_vec = Vector2(bridge["x"], bridge["y"])
 		
-		var cur_vec = Vector2(u["x"], u["y"])
 		var d = cur_vec.distance_to(goal_vec)
-		if d < 8.0:
+		if d < 12.0:
 			if goal_vec != target_vec and not is_airborne:
-				# Reached bridge waypoint, continue onward
+				# Intermediate bridge waypoint reached, continue onward
 				pass
 			else:
-				u["targetPos"] = null
+				# Target reached!
+				if u["waypointQueue"].size() > 0:
+					u["targetPos"] = u["waypointQueue"].pop_front()
+				else:
+					u["targetPos"] = null
+					u["guardPos"] = cur_vec
+					if u["stance"] == "attack_move":
+						u["stance"] = "guard"
 		else:
 			var cur_tile = Pathfinding.get_tile_at_world(sim.map, u["x"], u["y"])
 			var speed = u["speed"]
+			if u["stance"] == "retreat":
+				speed *= 1.15 # Sprint boost when retreating
 			if not is_airborne and cur_tile == "ford":
 				speed *= 0.55
 				if randf() < 0.25:
@@ -140,7 +231,6 @@ static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
 			var dir = (goal_vec - cur_vec).normalized()
 			
 			if is_airborne:
-				# Airborne gunship flies directly over all terrain & water!
 				u["x"] += dir.x * move_step
 				u["y"] += dir.y * move_step
 				u["angle"] = dir.angle()
@@ -161,9 +251,14 @@ static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
 					u["x"] = cand_x
 					u["angle"] = Vector2(dir.x, 0).angle()
 				else:
-					u["targetPos"] = null
+					# Path blocked, advance queue or halt
+					if u["waypointQueue"].size() > 0:
+						u["targetPos"] = u["waypointQueue"].pop_front()
+					else:
+						u["targetPos"] = null
+						u["guardPos"] = cur_vec
 
-				# Dust plumes & tread marks
+				# Tread marks & dust plumes
 				if u["kind"] == "tank" or u["kind"] == "behemoth" or u["kind"] == "scout":
 					u["treadAccum"] = u.get("treadAccum", 0.0) + move_step
 					if u["treadAccum"] >= 16.0:
@@ -171,49 +266,143 @@ static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
 						sim.add_tread_mark(u["x"], u["y"], u["angle"])
 					if randf() < 0.22 and cur_tile != "ford":
 						sim.spawn_particle("dust", u["x"] - dir.x * 12.0, u["y"] - dir.y * 12.0, -dir.x * 8.0 + randf_range(-4, 4), -dir.y * 8.0 + randf_range(-4, 4), 3.0, 9.0, 0.45, Color(0.74, 0.63, 0.47, 0.4))
-			
-	# Combat engagement
-	if u["range"] <= 0.0:
+
+	# --------------------------------------------------------------------------
+	# 5. Combat Engagement & Smooth Turret Traversal
+	# --------------------------------------------------------------------------
+	if u["range"] <= 0.0 or enemy_target == null:
 		return
 		
-	var enemy_target = null
-	var best_dist = u["range"]
+	var target_pos = Vector2(enemy_target["x"], enemy_target["y"])
+	var desired_aim = (target_pos - Vector2(u["x"], u["y"])).angle()
 	
-	# Check specific target entity
-	if u["targetEntityId"] != null:
-		for e in sim.units:
-			if e["id"] == u["targetEntityId"] and e["alive"]:
-				var d = Vector2(u["x"], u["y"]).distance_to(Vector2(e["x"], e["y"]))
-				if d <= u["range"] + 40.0:
-					enemy_target = e
-					break
-					
-	# Auto-acquire closest hostile within weapon range
-	if enemy_target == null:
-		var target_faction = "enemy" if u["faction"] == "player" else "player"
-		for e in sim.units:
-			if e["alive"] and e["faction"] == target_faction:
-				var d = Vector2(u["x"], u["y"]).distance_to(Vector2(e["x"], e["y"]))
-				if d < best_dist:
-					best_dist = d
-					enemy_target = e
-					
-	# Also target opposing HQ if in range
-	var opposing_hq = sim.map["enemyHQ"] if u["faction"] == "player" else sim.map["playerHQ"]
-	if opposing_hq["hp"] > 0.0:
-		var d_hq = Vector2(u["x"], u["y"]).distance_to(Vector2(opposing_hq["x"], opposing_hq["y"]))
-		if d_hq < best_dist:
-			enemy_target = opposing_hq
-			
-	if enemy_target != null:
-		var target_pos = Vector2(enemy_target["x"], enemy_target["y"])
-		var aim_angle = (target_pos - Vector2(u["x"], u["y"])).angle()
-		u["turretAngle"] = aim_angle
+	# Rate-limited turret rotation (rad/s)
+	var max_rot = 8.5 * dt
+	if u["kind"] == "behemoth":
+		max_rot = 3.6 * dt
+	elif u["kind"] == "scout":
+		max_rot = 14.0 * dt
+	elif u["kind"] == "artillery":
+		max_rot = 4.8 * dt
 		
+	u["turretAngle"] = rotate_toward(u["turretAngle"], desired_aim, max_rot)
+	
+	# Angular precision check: fire only when gun is trained on target (< 22 degrees)
+	var angle_diff = abs(angle_difference(u["turretAngle"], desired_aim))
+	if angle_diff < 0.38:
 		if u["cooldown"] <= 0.0:
 			SimCombat.fire_projectile(sim, u, target_pos)
 			u["cooldown"] = 1.0 / u["fireRate"] if u["fireRate"] > 0.0 else 1.0
 			u["recoil"] = 6.0
+
+static func select_smart_target(sim, u: Dictionary) -> Variant:
+	# Explicit player focus-fire command
+	if u.get("targetEntityId") != null:
+		for e in sim.units:
+			if e["id"] == u["targetEntityId"] and e["alive"]:
+				var d = Vector2(u["x"], u["y"]).distance_to(Vector2(e["x"], e["y"]))
+				if d <= u["range"] + 80.0:
+					return e
+		u["targetEntityId"] = null
+
+	var target_faction = "enemy" if u["faction"] == "player" else "player"
+	var max_scan_range = u["range"]
+	if u["stance"] == "attack_move":
+		max_scan_range += 45.0
+	elif u["stance"] == "guard":
+		max_scan_range += 20.0
+		
+	var best_target = null
+	var highest_score = -9999.0
+	
+	for e in sim.units:
+		if not e["alive"] or e["faction"] != target_faction:
+			continue
+		var dist = Vector2(u["x"], u["y"]).distance_to(Vector2(e["x"], e["y"]))
+		if dist > max_scan_range:
+			continue
+			
+		var score = 100.0 - (dist / max_scan_range) * 25.0
+		
+		# Low HP Execution Bonus (Finishing off wounded units)
+		var hp_ratio = e["hp"] / e["maxHp"]
+		score += (1.0 - hp_ratio) * 45.0
+		
+		# Threat & Counter-Battery Bonus
+		if e.get("targetEntityId") == u["id"]:
+			score += 35.0
+			
+		match e["kind"]:
+			"behemoth": score += 34.0
+			"artillery": score += 30.0
+			"tank": score += 24.0
+			"turret": score += 20.0
+			"helicopter": score += 18.0
+			"engineer": score += 16.0
+			"scout": score += 12.0
+			"truck": score += 5.0
+			
+		if score > highest_score:
+			highest_score = score
+			best_target = e
+			
+	# Target opposing HQ if in range and no higher priority unit
+	if best_target == null:
+		var opposing_hq = sim.map["enemyHQ"] if u["faction"] == "player" else sim.map["playerHQ"]
+		if opposing_hq["hp"] > 0.0:
+			var d_hq = Vector2(u["x"], u["y"]).distance_to(Vector2(opposing_hq["x"], opposing_hq["y"]))
+			if d_hq <= u["range"]:
+				return opposing_hq
+				
+	return best_target
+
+static func calculate_formation_positions(selected: Array[Dictionary], target_pos: Vector2) -> Dictionary:
+	var positions: Dictionary = {}
+	if selected.is_empty():
+		return positions
+	if selected.size() == 1:
+		positions[selected[0]["id"]] = target_pos
+		return positions
+		
+	var center = Vector2.ZERO
+	for u in selected:
+		center += Vector2(u["x"], u["y"])
+	center /= float(selected.size())
+	
+	var forward_dir = (target_pos - center).normalized()
+	if forward_dir == Vector2.ZERO:
+		forward_dir = Vector2.RIGHT
+	var lateral_dir = Vector2(-forward_dir.y, forward_dir.x)
+	
+	var vanguard: Array[Dictionary] = []
+	var flanks: Array[Dictionary] = []
+	var rearguard: Array[Dictionary] = []
+	var air: Array[Dictionary] = []
+	
+	for u in selected:
+		match u["kind"]:
+			"behemoth", "tank": vanguard.push_back(u)
+			"scout", "engineer": flanks.push_back(u)
+			"artillery": rearguard.push_back(u)
+			"helicopter": air.push_back(u)
+			_: vanguard.push_back(u)
+			
+	var assign_echelon = func(echelon: Array[Dictionary], row_offset: float, col_spacing: float):
+		var n = echelon.size()
+		if n == 0:
+			return
+		for idx in range(n):
+			var u = echelon[idx]
+			var col_idx = float(idx) - float(n - 1) * 0.5
+			var slot_pos = target_pos + forward_dir * row_offset + lateral_dir * (col_idx * col_spacing)
+			positions[u["id"]] = slot_pos
+			
+	assign_echelon.call(vanguard, 0.0, 36.0)
+	assign_echelon.call(flanks, -14.0, 42.0)
+	assign_echelon.call(rearguard, -46.0, 38.0)
+	assign_echelon.call(air, -22.0, 34.0)
+	
+	return positions
 
 static func train_player_unit(sim, kind: String) -> bool:
 	if sim.phase != "playing":
@@ -232,7 +421,8 @@ static func train_player_unit(sim, kind: String) -> bool:
 	var sy = phq["y"] + sin(offset_angle) * 52.0
 	var u = spawn_unit(sim, "player", kind, sx, sy)
 	u["targetPos"] = Vector2(phq["x"] + 170.0 + cos(offset_angle) * 32.0, phq["y"] + sin(offset_angle) * 58.0)
-	u["stance"] = "move"
+	u["stance"] = "guard"
+	u["guardPos"] = u["targetPos"]
 	sim.spawn_burst(sx, sy, "smoke", 6, Color("#b8aa8f"), 45.0)
 	sim.sound_triggered.emit("unit_ready")
 	return true
@@ -314,13 +504,17 @@ static func select_units_in_box(sim, rect: Rect2, additive: bool = false) -> int
 		sim.sound_triggered.emit("unit_select")
 	return count
 
-static func issue_player_command(sim, world_x: float, world_y: float) -> bool:
-	if sim.phase != "playing":
-		return false
+static func get_selected_player_combat_units(sim) -> Array[Dictionary]:
 	var selected: Array[Dictionary] = []
 	for u in sim.units:
 		if u["alive"] and u["faction"] == "player" and u["selected"] and u["kind"] != "truck" and u["kind"] != "turret":
 			selected.push_back(u)
+	return selected
+
+static func issue_player_command(sim, world_x: float, world_y: float, shift_queued: bool = false) -> bool:
+	if sim.phase != "playing":
+		return false
+	var selected = get_selected_player_combat_units(sim)
 	if selected.is_empty():
 		return false
 		
@@ -332,7 +526,9 @@ static func issue_player_command(sim, world_x: float, world_y: float) -> bool:
 			u["targetEntityId"] = null
 			u["targetBridgeId"] = null
 			u["targetPos"] = Vector2(ehq["x"], ehq["y"])
-			u["stance"] = "attack"
+			u["stance"] = "attack_move"
+			if not shift_queued:
+				u["waypointQueue"].clear()
 		sim.order_pulse = { "x": ehq["x"], "y": ehq["y"], "color": Color("#ef5350"), "timer": 0.55, "type": "attack" }
 		sim.sound_triggered.emit("order_attack")
 		return true
@@ -353,7 +549,9 @@ static func issue_player_command(sim, world_x: float, world_y: float) -> bool:
 			u["targetBridgeId"] = null
 			u["targetHqFaction"] = null
 			u["targetPos"] = Vector2(clicked_enemy["x"], clicked_enemy["y"])
-			u["stance"] = "attack"
+			u["stance"] = "attack_move"
+			if not shift_queued:
+				u["waypointQueue"].clear()
 		sim.order_pulse = { "x": clicked_enemy["x"], "y": clicked_enemy["y"], "color": Color("#ef5350"), "timer": 0.55, "type": "attack" }
 		sim.sound_triggered.emit("order_attack")
 		return true
@@ -367,20 +565,94 @@ static func issue_player_command(sim, world_x: float, world_y: float) -> bool:
 				u["targetEntityId"] = null
 				u["targetHqFaction"] = null
 				u["targetPos"] = Vector2(clicked_bridge["x"], clicked_bridge["y"])
-				u["stance"] = "demolish"
+				u["stance"] = "attack_move"
+				if not shift_queued:
+					u["waypointQueue"].clear()
 			sim.order_pulse = { "x": clicked_bridge["x"], "y": clicked_bridge["y"], "color": Color("#f5c249"), "timer": 0.55, "type": "attack" }
 			sim.sound_triggered.emit("order_attack")
 			return true
 
-	# 4. Move command
-	for i in range(selected.size()):
-		var u = selected[i]
+	# 4. Standard Group Movement in Tactical Formations
+	var formation_slots = calculate_formation_positions(selected, Vector2(world_x, world_y))
+	for u in selected:
 		u["targetEntityId"] = null
 		u["targetBridgeId"] = null
 		u["targetHqFaction"] = null
-		var offset = Vector2.ZERO if selected.size() == 1 else Vector2(cos(i * 1.2), sin(i * 1.2)) * 24.0
-		u["targetPos"] = Vector2(world_x, world_y) + offset
-		u["stance"] = "move"
+		u["stance"] = "guard"
+		var slot_pos: Vector2 = formation_slots.get(u["id"], Vector2(world_x, world_y))
+		
+		if shift_queued:
+			if u["targetPos"] == null:
+				u["targetPos"] = slot_pos
+			else:
+				u["waypointQueue"].push_back(slot_pos)
+		else:
+			u["waypointQueue"].clear()
+			u["targetPos"] = slot_pos
+
 	sim.order_pulse = { "x": world_x, "y": world_y, "color": Color("#78d464"), "timer": 0.55, "type": "move" }
 	sim.sound_triggered.emit("order_move")
 	return true
+
+static func issue_player_attack_move(sim, world_x: float, world_y: float, shift_queued: bool = false) -> bool:
+	if sim.phase != "playing":
+		return false
+	var selected = get_selected_player_combat_units(sim)
+	if selected.is_empty():
+		return false
+
+	var formation_slots = calculate_formation_positions(selected, Vector2(world_x, world_y))
+	for u in selected:
+		u["targetEntityId"] = null
+		u["targetBridgeId"] = null
+		u["targetHqFaction"] = null
+		u["stance"] = "attack_move"
+		var slot_pos: Vector2 = formation_slots.get(u["id"], Vector2(world_x, world_y))
+		
+		if shift_queued:
+			if u["targetPos"] == null:
+				u["targetPos"] = slot_pos
+			else:
+				u["waypointQueue"].push_back(slot_pos)
+		else:
+			u["waypointQueue"].clear()
+			u["targetPos"] = slot_pos
+
+	sim.order_pulse = { "x": world_x, "y": world_y, "color": Color("#ef4444"), "timer": 0.65, "type": "attack" }
+	sim.sound_triggered.emit("order_attack")
+	return true
+
+static func stop_selected_units(sim) -> void:
+	var selected = get_selected_player_combat_units(sim)
+	for u in selected:
+		u["targetPos"] = null
+		u["waypointQueue"].clear()
+		u["targetEntityId"] = null
+		u["targetBridgeId"] = null
+		u["targetHqFaction"] = null
+		u["stance"] = "guard"
+		u["guardPos"] = Vector2(u["x"], u["y"])
+	sim.sound_triggered.emit("order_stop")
+
+static func set_selected_stance(sim, stance: String) -> void:
+	var selected = get_selected_player_combat_units(sim)
+	for u in selected:
+		u["stance"] = stance
+		if stance == "hold_ground":
+			u["targetPos"] = null
+			u["waypointQueue"].clear()
+			u["guardPos"] = Vector2(u["x"], u["y"])
+	if stance == "hold_ground":
+		sim.sound_triggered.emit("order_hold")
+	else:
+		sim.sound_triggered.emit("order_move")
+
+static func retreat_selected_units(sim) -> void:
+	var selected = get_selected_player_combat_units(sim)
+	for u in selected:
+		u["stance"] = "retreat"
+		u["waypointQueue"].clear()
+		u["targetEntityId"] = null
+		# Smoke discharge on retreat
+		sim.spawn_particle("smoke", u["x"], u["y"], randf_range(-12, 12), -15.0, 8.0, 26.0, 1.2, Color(0.9, 0.9, 0.92, 0.75))
+	sim.sound_triggered.emit("order_retreat")

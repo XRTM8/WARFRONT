@@ -340,6 +340,11 @@ func _draw() -> void:
 		draw_rect(Rect2(m_pos.x - hw * 0.5, m_pos.y - hh * 0.5, hw, hh), border_col, false, 2.0)
 		draw_circle(m_pos, b_spec["radius"], Color(border_col.r, border_col.g, border_col.b, 0.12))
 
+	# 14. Attack-Move Tactical Reticle
+	if sim.attack_move_mode:
+		var m_pos = get_global_mouse_position()
+		RenderFX.draw_attack_move_reticle(self, m_pos, sim.sim_time)
+
 # Backward-compatible convenience delegates
 func draw_craters() -> void:
 	RenderFX.draw_craters(self, sim.craters)

@@ -113,31 +113,49 @@ static func draw_tactical_waypoints(canvas: CanvasItem, units: Array, sim_time: 
 		if not u.get("alive", false) or not u.get("selected", false) or u.get("faction", "") != "player":
 			continue
 		
-		# 1. Waypoint movement trajectory line
+		# 1. Waypoint movement trajectory lines & queued patrol paths
+		var all_waypoints: Array[Vector2] = []
 		if u.get("targetPos") != null:
-			var start = Vector2(u["x"], u["y"])
-			var end: Vector2 = u["targetPos"]
-			var dist = start.distance_to(end)
-			if dist > 14.0:
-				var dir = (end - start).normalized()
-				var dash_len = 7.0
-				var gap_len = 5.0
-				var offset = fmod(sim_time * 26.0, dash_len + gap_len)
-				var cur = offset
-				var col = Color(0.48, 0.92, 0.38, 0.72)
-				
-				while cur < dist:
-					var p1 = start + dir * cur
-					var p2 = start + dir * min(cur + dash_len, dist)
-					canvas.draw_line(p1, p2, col, 1.6)
-					cur += dash_len + gap_len
-				
-				# Destination tactical marker
-				var pulse = 0.5 + 0.5 * sin(sim_time * 8.0)
-				canvas.draw_circle(end, 4.0, Color(0.3, 0.85, 0.25, 0.35))
-				canvas.draw_arc(end, 5.5 + pulse * 1.5, 0, TAU, 14, Color(0.65, 0.98, 0.45, 0.85), 1.4)
-				canvas.draw_line(end - Vector2(7, 0), end + Vector2(7, 0), Color(0.65, 0.98, 0.45, 0.7), 1.0)
-				canvas.draw_line(end - Vector2(0, 7), end + Vector2(0, 7), Color(0.65, 0.98, 0.45, 0.7), 1.0)
+			all_waypoints.push_back(u["targetPos"])
+		for qp in u.get("waypointQueue", []):
+			all_waypoints.push_back(qp)
+			
+		if all_waypoints.size() > 0:
+			var path_points: Array[Vector2] = [Vector2(u["x"], u["y"])]
+			path_points.append_array(all_waypoints)
+			
+			var is_atk = (u.get("stance", "") == "attack_move")
+			var is_ret = (u.get("stance", "") == "retreat")
+			var col = Color(0.95, 0.28, 0.28, 0.8) if is_atk else (Color(0.25, 0.75, 1.0, 0.8) if is_ret else Color(0.48, 0.92, 0.38, 0.75))
+			
+			for seg_idx in range(path_points.size() - 1):
+				var start = path_points[seg_idx]
+				var end = path_points[seg_idx + 1]
+				var dist = start.distance_to(end)
+				if dist > 8.0:
+					var dir = (end - start).normalized()
+					var dash_len = 7.0
+					var gap_len = 5.0
+					var offset = fmod(sim_time * 26.0, dash_len + gap_len)
+					var cur = offset
+					
+					while cur < dist:
+						var p1 = start + dir * cur
+						var p2 = start + dir * min(cur + dash_len, dist)
+						canvas.draw_line(p1, p2, col, 1.8)
+						cur += dash_len + gap_len
+						
+					# Destination waypoint marker
+					var pulse = 0.5 + 0.5 * sin(sim_time * 8.0 + float(seg_idx))
+					canvas.draw_circle(end, 4.0, Color(col.r, col.g, col.b, 0.35))
+					canvas.draw_arc(end, 5.5 + pulse * 1.5, 0, TAU, 14, col, 1.4)
+					canvas.draw_line(end - Vector2(7, 0), end + Vector2(7, 0), col, 1.0)
+					canvas.draw_line(end - Vector2(0, 7), end + Vector2(0, 7), col, 1.0)
+					
+					# Draw sequence number dot for queued waypoints
+					if all_waypoints.size() > 1:
+						canvas.draw_circle(end + Vector2(8, -8), 3.5, Color(0.08, 0.09, 0.07, 0.9))
+						canvas.draw_arc(end + Vector2(8, -8), 3.5, 0, TAU, 10, col, 1.2)
 				
 		# 2. Target enemy attack vector line
 		elif u.get("targetEntityId") != null:
@@ -155,7 +173,7 @@ static func draw_tactical_waypoints(canvas: CanvasItem, units: Array, sim_time: 
 				var gap_len = 5.0
 				var offset = fmod(sim_time * 28.0, dash_len + gap_len)
 				var cur = offset
-				var atk_col = Color(0.95, 0.3, 0.28, 0.8)
+				var atk_col = Color(0.95, 0.3, 0.28, 0.85)
 				
 				while cur < dist:
 					var p1 = start + dir * cur
@@ -168,6 +186,19 @@ static func draw_tactical_waypoints(canvas: CanvasItem, units: Array, sim_time: 
 				canvas.draw_arc(end, r, 0, TAU, 16, atk_col, 1.6)
 				canvas.draw_line(end - Vector2(r + 4, 0), end + Vector2(r + 4, 0), atk_col, 1.2)
 				canvas.draw_line(end - Vector2(0, r + 4), end + Vector2(0, r + 4), atk_col, 1.2)
+
+static func draw_attack_move_reticle(canvas: CanvasItem, mouse_pos: Vector2, sim_time: float) -> void:
+	var r = 16.0 + sin(sim_time * 12.0) * 2.0
+	var col = Color("#ef4444")
+	# Outer danger reticle ring
+	canvas.draw_arc(mouse_pos, r, 0, TAU, 24, col, 2.0)
+	canvas.draw_circle(mouse_pos, 3.0, Color.WHITE)
+	# 4 Crosshair teeth
+	for i in range(4):
+		var ang = float(i) * PI * 0.5 + sim_time * 1.5
+		var p_in = mouse_pos + Vector2(cos(ang), sin(ang)) * (r - 4.0)
+		var p_out = mouse_pos + Vector2(cos(ang), sin(ang)) * (r + 7.0)
+		canvas.draw_line(p_in, p_out, col, 2.5)
 
 static func draw_projectile(canvas: CanvasItem, pr: Dictionary) -> void:
 	var pos = Vector2(pr["x"], pr["y"])

@@ -70,6 +70,9 @@ func _generate_all_sounds() -> void:
 	_sounds["recon_ping"] = _synth_recon_ping()
 	_sounds["unit_ready"] = _synth_unit_ready()
 	_sounds["structure_placed"] = _synth_capture()
+	_sounds["order_stop"] = _synth_order_stop()
+	_sounds["order_hold"] = _synth_order_hold()
+	_sounds["order_retreat"] = _synth_order_retreat()
 
 func _synth_cannon() -> AudioStreamWAV:
 	# T-72 125mm Main Battle Tank Cannon
@@ -444,6 +447,58 @@ func _synth_unit_ready() -> AudioStreamWAV:
 		# Radio noise burst at onset
 		var squelch = (randf() * 2.0 - 1.0) * exp(-50.0 * t) * 0.15
 		raw[i] = tone1 + tone2 + squelch
+		
+	return _build_wav(raw)
+
+func _synth_order_stop() -> AudioStreamWAV:
+	# Hydraulic Air-Brake Release & Gear Clamp
+	var duration = 0.22
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var hiss_env = exp(-14.0 * t)
+		var hiss = (randf() * 2.0 - 1.0) * hiss_env * 0.4
+		var clamp_thud = sin(t * 160.0 * TAU) * exp(-28.0 * t) * 0.6
+		var metal_click = (randf() * 2.0 - 1.0) * exp(-70.0 * t) * 0.3
+		raw[i] = hiss + clamp_thud + metal_click
+		
+	var filtered = _apply_lowpass(raw, 2400.0)
+	return _build_wav(filtered)
+
+func _synth_order_hold() -> AudioStreamWAV:
+	# Heavy Armored Brace & Mechanical Lock Clank
+	var duration = 0.25
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var env = exp(-20.0 * t)
+		var ring1 = sin(t * 520.0 * TAU) * env * 0.5
+		var ring2 = sin(t * 780.0 * TAU) * env * 0.35
+		var sub = sin(t * 110.0 * TAU) * exp(-12.0 * t) * 0.7
+		raw[i] = ring1 + ring2 + sub
+		
+	return _build_wav(raw)
+
+func _synth_order_retreat() -> AudioStreamWAV:
+	# Tactical Retreat Alert Pip & Turbine Reverse
+	var duration = 0.34
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var pip1 = sin(t * 1560.0 * TAU) * exp(-24.0 * t) * 0.5
+		var t2 = max(0.0, t - 0.08)
+		var pip2 = sin(t2 * 1170.0 * TAU) * exp(-20.0 * t2) * 0.55
+		var turbine = sin(t * (300.0 + t * 400.0) * TAU) * exp(-6.0 * t) * 0.35
+		raw[i] = pip1 + pip2 + turbine
 		
 	return _build_wav(raw)
 
