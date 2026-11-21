@@ -290,6 +290,10 @@ func _draw() -> void:
 	for s in sim.structures:
 		RenderStructures.draw_structure(self, default_font, s, pal, sim.sim_time)
 	
+	# 6.3 Player Tactical Rally Point Beacon
+	if sim.player_rally_point != Vector2.ZERO:
+		RenderStructures.draw_rally_beacon(self, default_font, sim.player_rally_point, sim.sim_time)
+	
 	# 6.5 Tactical Recon Drone Radar Sweeps
 	RenderFX.draw_recon_sweeps(self, sim.active_recon_sweeps, sim.sim_time)
 

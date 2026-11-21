@@ -164,6 +164,7 @@ func build_dossier(parent: Control, on_micro_action: Callable = Callable()) -> v
 		{ "id": "attack_move", "label": "[A] ENGAGE // اشتباك", "color": Color("#ef4444") },
 		{ "id": "stop", "label": "[S] HALT // توقف", "color": Color("#eab308") },
 		{ "id": "hold", "label": "[H] DEFEND // ثبات", "color": Color("#3b82f6") },
+		{ "id": "reverse", "label": "[G] REVERSE // خلف", "color": Color("#f59e0b") },
 		{ "id": "retreat", "label": "[R] RETREAT // تراجع", "color": Color("#a855f7") },
 		{ "id": "ability", "label": "[F] ABILITY // قدرة", "color": Color("#f97316") }
 	]

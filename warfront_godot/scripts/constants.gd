@@ -11,6 +11,28 @@ const BRIDGE_REBUILD_COST: int = 110
 const BRIDGE_MAX_HP: float = 420.0
 const HQ_MAX_HP: float = 1600.0
 const TRUCK_CARGO_CAPACITY: int = 55
+const REVERSE_SPEED_RATIO: float = 0.70
+
+const FACTION_DOCTRINES: Dictionary = {
+	"vanguard": {
+		"id": "vanguard",
+		"name": "طليعة التحالف المدرعة",
+		"code": "[ COALITION VANGUARD ]",
+		"hp_mult": 1.15,
+		"speed_mult": 0.95,
+		"damage_mult": 1.05,
+		"desc": "عقيدة ترتكز على صلابة الدروع الفولاذية والقصف المدفعي المنسق مع تعزيز متانة الهياكل."
+	},
+	"raiders": {
+		"id": "raiders",
+		"name": "مغاوير الصحراء السريعة",
+		"code": "[ DESERT RAIDERS ]",
+		"hp_mult": 0.90,
+		"speed_mult": 1.20,
+		"damage_mult": 1.10,
+		"desc": "عقيدة خفيفة تعتمد على المناورة الصاعقة والسرعة القصوى والالتفاف السريع خلف خطوط الإمداد."
+	}
+}
 
 const TACTICAL_STANCES: Dictionary = {
 	"guard": { "id": "guard", "name": "حراسة ودفاع", "leash_dist": 140.0, "icon": "[GUARD]" },

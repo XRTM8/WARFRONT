@@ -79,6 +79,9 @@ func _generate_all_sounds() -> void:
 	_sounds["cargo_flyby"] = _synth_cargo_flyby()
 	_sounds["mine_detonate"] = _synth_mine_detonate()
 	_sounds["multi_kill"] = _synth_multi_kill()
+	_sounds["radio_in"] = _synth_radio_squawk()
+	_sounds["bark_roger"] = _synth_bark_roger()
+	_sounds["bark_retreat"] = _synth_bark_retreat()
 
 func _synth_cannon() -> AudioStreamWAV:
 	# T-72 125mm Main Battle Tank Cannon
@@ -635,6 +638,89 @@ func _synth_multi_kill() -> AudioStreamWAV:
 		raw[i] = pip1 + pip2 + radio_hiss
 		
 	return _build_wav(raw)
+
+func _synth_radio_squawk() -> AudioStreamWAV:
+	# Tactical VHF Radio Squelch & Mic-Key Click
+	var duration = 0.11
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var click = sin(t * 2600.0 * TAU) * exp(-85.0 * t) * 0.7
+		var hiss = (randf() * 2.0 - 1.0) * sin(clampf(t / duration, 0.0, 1.0) * PI) * 0.35
+		var hum = sin(t * 120.0 * TAU) * 0.12
+		raw[i] = click + hiss + hum
+		
+	var filtered = _apply_lowpass(raw, 3200.0)
+	return _build_wav(filtered)
+
+func _synth_bark_roger() -> AudioStreamWAV:
+	# Procedural Formant Vocal Bark: "RO-GER" over Combat Tactical Radio
+	var duration = 0.32
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var vocal = 0.0
+		# Glottal excitation pulse train (pitch ~120 Hz)
+		var glottal = (fmod(t * 120.0, 1.0) - 0.5) * 2.0
+		
+		# Syllable 1: "RO" (0 to 0.15s) - F1: 520Hz, F2: 1050Hz
+		if t < 0.15:
+			var env1 = sin((t / 0.15) * PI)
+			var f1 = sin(t * 520.0 * TAU) * 0.45
+			var f2 = sin(t * 1050.0 * TAU) * 0.35
+			vocal = glottal * (f1 + f2) * env1
+		# Syllable 2: "GER" (0.16s to 0.31s) - F1: 440Hz, F2: 1750Hz
+		elif t >= 0.16 and t < 0.31:
+			var t_s2 = t - 0.16
+			var env2 = sin((t_s2 / 0.15) * PI)
+			var f1 = sin(t * 440.0 * TAU) * 0.4
+			var f2 = sin(t * 1750.0 * TAU) * 0.45
+			vocal = glottal * (f1 + f2) * env2
+			
+		# RF radio background distortion & hiss
+		var rf_noise = (randf() * 2.0 - 1.0) * 0.08
+		raw[i] = vocal * 0.85 + rf_noise
+		
+	var filtered = _apply_lowpass(raw, 2800.0)
+	return _build_wav(filtered)
+
+func _synth_bark_retreat() -> AudioStreamWAV:
+	# Procedural Formant Vocal Bark: "FALL-BACK" over Combat Tactical Radio
+	var duration = 0.35
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var vocal = 0.0
+		var glottal = (fmod(t * 135.0, 1.0) - 0.5) * 2.0
+		
+		# Syllable 1: "FALL" (0 to 0.17s) - F1: 650Hz, F2: 1150Hz
+		if t < 0.17:
+			var env1 = sin((t / 0.17) * PI)
+			var f1 = sin(t * 650.0 * TAU) * 0.5
+			var f2 = sin(t * 1150.0 * TAU) * 0.3
+			vocal = glottal * (f1 + f2) * env1
+		# Syllable 2: "BACK" (0.18s to 0.34s) - F1: 720Hz, F2: 1800Hz
+		elif t >= 0.18 and t < 0.34:
+			var t_s2 = t - 0.18
+			var env2 = sin((t_s2 / 0.16) * PI)
+			var f1 = sin(t * 720.0 * TAU) * 0.45
+			var f2 = sin(t * 1800.0 * TAU) * 0.4
+			vocal = glottal * (f1 + f2) * env2
+			
+		var rf_noise = (randf() * 2.0 - 1.0) * 0.09
+		raw[i] = vocal * 0.85 + rf_noise
+		
+	var filtered = _apply_lowpass(raw, 2700.0)
+	return _build_wav(filtered)
 
 # ------------------------------------------------------------------------------
 # Digital Signal Processing (DSP) Filters & WAV Builder

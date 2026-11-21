@@ -5,10 +5,16 @@ const Constants = preload("res://scripts/constants.gd")
 const Pathfinding = preload("res://scripts/pathfinding.gd")
 
 static func update_enemy_ai(sim, dt: float) -> void:
-	# 1. Update any active enemy engineers (repairing destroyed bridges)
+	# 1. Update active enemy units & check tactical self-preservation
 	for u in sim.units:
-		if u["alive"] and u["faction"] == "enemy" and u["kind"] == "engineer":
-			_update_enemy_engineer(sim, u)
+		if u["alive"] and u["faction"] == "enemy":
+			if u["kind"] == "engineer":
+				_update_enemy_engineer(sim, u)
+			elif u["kind"] != "truck" and u["kind"] != "turret":
+				# Self-preservation: Low HP units retreat to sanctuary (HQ or Repair Depot) to heal
+				if u["hp"] <= u["maxHp"] * 0.28 and u["stance"] != "retreat":
+					u["stance"] = "retreat"
+					sim.spawn_particle("smoke", u["x"], u["y"], 0.0, -12.0, 6.0, 24.0, 0.85, Color(0.85, 0.85, 0.85, 0.7))
 
 	# 2. Strategic decision tick
 	sim.ai_decision_timer -= dt
@@ -160,11 +166,12 @@ static func _spawn_combined_arms_wave(sim, ehq: Dictionary, target_pos: Vector2)
 		a["targetPos"] = target_pos
 		a["stance"] = "attack"
 
-	# Fast flank scout
+	# Fast flank scout or raider taking alternate flanking route
 	if sim.enemy_oil >= Constants.UNIT_SPECS["scout"]["cost"]:
 		sim.enemy_oil -= Constants.UNIT_SPECS["scout"]["cost"]
 		var s = sim.spawn_unit("enemy", "scout", ehq["x"] - 65.0, ehq["y"] + randf_range(-45, 45))
-		s["targetPos"] = target_pos + Vector2(randf_range(-60, 60), randf_range(-60, 60))
+		var flank_offset_y = 180.0 if randf() < 0.5 else -180.0
+		s["targetPos"] = target_pos + Vector2(randf_range(-40, 40), flank_offset_y)
 		s["stance"] = "attack"
 
 static func _spawn_reinforcement(sim, ehq: Dictionary, target_pos: Vector2) -> void:

@@ -25,6 +25,7 @@ func _init() -> void:
 	test_base_building_and_structures()
 	test_unit_ai_and_advanced_controls()
 	test_visceral_fun_and_momentum_overhaul()
+	test_tactical_controls_and_asymmetry_overhaul()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -576,4 +577,75 @@ func test_visceral_fun_and_momentum_overhaul() -> void:
 	assert(sim.recent_player_kills.size() == 2, "Double kill combo recorded")
 	
 	print("✔ Test 12: Real Gameplay Fun, Visceral Combat & Momentum Systems (Flying Turrets, Combat Surge, Hero Abilities, Mines, Airdrops, Multi-kills) passed.")
+
+func test_tactical_controls_and_asymmetry_overhaul() -> void:
+	var sim = Simulation.new("kirkuk", 104729)
+	
+	# 1. Asymmetrical Faction Doctrines
+	sim.player_doctrine = "vanguard"
+	sim.enemy_doctrine = "raiders"
+	var p_tank = sim.spawn_unit("player", "tank", 400.0, 400.0)
+	var e_tank = sim.spawn_unit("enemy", "tank", 600.0, 400.0)
+	assert(p_tank["hp"] > e_tank["hp"], "Coalition Vanguard must have higher armor than Desert Raiders")
+	assert(e_tank["speed"] > p_tank["speed"], "Desert Raiders must have higher mobility than Coalition Vanguard")
+	
+	# 2. Building Rally Points
+	var rally_target = Vector2(850.0, 620.0)
+	sim.set_player_rally_point(rally_target.x, rally_target.y)
+	assert(sim.player_rally_point == rally_target, "Player rally point must be set")
+	sim.player_oil = 500
+	var trained = sim.train_player_unit("scout")
+	assert(trained, "Must be able to train unit with sufficient oil")
+	var new_scout = sim.units[sim.units.size() - 1]
+	assert(new_scout["targetPos"] == rally_target, "New unit must automatically deploy to base rally point")
+	
+	# 3. Tactical Reverse-Move (Retaining Hull Facing)
+	var rev_tank = sim.spawn_unit("player", "tank", 500.0, 500.0)
+	rev_tank["angle"] = 0.0 # Facing east
+	for u in sim.units:
+		u["selected"] = false
+	rev_tank["selected"] = true
+	
+	# Order reverse-move to the west (behind the tank)
+	var issued = sim.issue_player_reverse_move(420.0, 500.0)
+	assert(issued, "Reverse-move order must be accepted for land vehicles")
+	assert(rev_tank["is_reversing"], "Unit must enter is_reversing state")
+	assert(rev_tank["targetPos"] == Vector2(420.0, 500.0))
+	
+	# Step simulation
+	sim.step(0.05)
+	assert(rev_tank["x"] < 500.0, "Reversing tank must move backwards towards destination")
+	assert(rev_tank["angle"] == 0.0, "Reversing tank must keep forward hull orientation and not turn 180 degrees")
+	
+	# Regular move cancels reverse mode
+	sim.issue_player_command(600.0, 500.0)
+	assert(not rev_tank["is_reversing"], "Regular command must cancel reverse mode")
+	
+	# 4. Dynamic Building & Structure Avoidance
+	var dummy_struct = {
+		"id": 8881,
+		"kind": "repair_depot",
+		"faction": "player",
+		"x": 700.0,
+		"y": 700.0,
+		"radius": 28.0,
+		"hp": 200.0,
+		"maxHp": 200.0,
+		"status": "ready",
+		"hitFlash": 0.0,
+		"cooldown": 0.0
+	}
+	sim.structures.push_back(dummy_struct)
+	var near_unit = sim.spawn_unit("player", "scout", 710.0, 700.0) # Overlapping
+	sim.step(0.05)
+	assert(near_unit["x"] > 710.0, "Unit overlapping structure boundary must be smoothly pushed away")
+	
+	# 5. AI Tactical Self-Preservation Retreat
+	var enemy_combatant = sim.spawn_unit("enemy", "tank", 800.0, 800.0)
+	enemy_combatant["hp"] = enemy_combatant["maxHp"] * 0.20 # Severely wounded
+	enemy_combatant["stance"] = "attack"
+	SimAI.update_enemy_ai(sim, 0.05)
+	assert(enemy_combatant["stance"] == "retreat", "Wounded enemy unit (< 28% HP) must fall back in tactical retreat")
+	
+	print("✔ Test 13: AAA RTS Controls & Mechanics Overhaul (Reverse-Move, Rally Points, AI Self-Preservation, Doctrines, Obstacle Avoidance) passed.")
 

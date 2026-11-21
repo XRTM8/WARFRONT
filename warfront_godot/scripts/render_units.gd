@@ -42,6 +42,13 @@ static func draw_unit(canvas: CanvasItem, default_font: Font, u: Dictionary, sim
 	var chassis_angle = u["angle"] if u["kind"] != "turret" else 0.0
 	canvas.draw_set_transform(pos, chassis_angle, Vector2.ONE)
 
+	# Tactical Reverse Warning Chevrons behind chassis
+	if u.get("is_reversing", false):
+		var rev_col = Color("#f59e0b")
+		var pulse_x = fmod(sim_time * 20.0, 8.0)
+		canvas.draw_line(Vector2(-u["radius"] - 6.0 - pulse_x, -5), Vector2(-u["radius"] - 11.0 - pulse_x, 0), rev_col, 2.0)
+		canvas.draw_line(Vector2(-u["radius"] - 11.0 - pulse_x, 0), Vector2(-u["radius"] - 6.0 - pulse_x, 5), rev_col, 2.0)
+
 	if u["kind"] == "truck":
 		# Physical Oil Supply Truck
 		canvas.draw_rect(Rect2(-16, -11, 32, 22), Color("#141412"))

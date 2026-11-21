@@ -437,3 +437,26 @@ static func draw_structure(canvas: CanvasItem, default_font: Font, s: Dictionary
 		canvas.draw_rect(Rect2(pos.x - bar_w * 0.5, pos.y - h * 0.5 - 8, bar_w, 4), Color(0.08, 0.08, 0.08, 0.9))
 		canvas.draw_rect(Rect2(pos.x - bar_w * 0.5 + 1, pos.y - h * 0.5 - 7, (bar_w - 2) * hp_pct, 2), fac_col)
 
+static func draw_rally_beacon(canvas: CanvasItem, font: Font, pos: Vector2, sim_time: float) -> void:
+	var pulse = 0.8 + 0.2 * sin(sim_time * 6.0)
+	var col = Color("#38bdf8")
+	var col_trans = Color(col.r, col.g, col.b, 0.25 * pulse)
+	
+	# Concentric tactical radar rings
+	canvas.draw_circle(pos, 16.0 * pulse, col_trans)
+	canvas.draw_arc(pos, 16.0 * pulse, 0, TAU, 16, col, 1.5)
+	canvas.draw_arc(pos, 8.0, 0, TAU, 12, col, 1.0)
+	canvas.draw_circle(pos, 3.0, Color.WHITE)
+	
+	# Holographic beacon mast
+	canvas.draw_line(pos, pos + Vector2(0, -24), col, 2.0)
+	# Triangular waypoint pennant
+	var p1 = pos + Vector2(0, -24)
+	var p2 = pos + Vector2(14, -18)
+	var p3 = pos + Vector2(0, -12)
+	canvas.draw_colored_polygon(PackedVector2Array([p1, p2, p3]), Color(col.r, col.g, col.b, 0.85))
+	
+	# Bracketed tactical label
+	if font != null:
+		canvas.draw_string(font, pos + Vector2(-28, -28), "[ RALLY ]", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, Color.WHITE)
+

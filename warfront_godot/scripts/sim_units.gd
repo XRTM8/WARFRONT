@@ -8,18 +8,28 @@ const SimLogistics = preload("res://scripts/sim_logistics.gd")
 
 static func spawn_unit(sim, faction: String, kind: String, x: float, y: float) -> Dictionary:
 	var spec = Constants.UNIT_SPECS[kind]
+	var doctrine_id = sim.player_doctrine if faction == "player" else sim.enemy_doctrine
+	var doctrine = Constants.FACTION_DOCTRINES.get(doctrine_id, {})
+	var hp_mult = doctrine.get("hp_mult", 1.0)
+	var speed_mult = doctrine.get("speed_mult", 1.0)
+	var damage_mult = doctrine.get("damage_mult", 1.0)
+	
+	var base_hp = round(spec["hp"] * hp_mult) if doctrine.size() > 0 else spec["hp"]
+	var base_speed = spec["speed"] * speed_mult if doctrine.size() > 0 else spec["speed"]
+	var base_dmg = round(spec["damage"] * damage_mult) if doctrine.size() > 0 else spec["damage"]
+	
 	var unit = {
 		"id": sim.next_unit_id,
 		"faction": faction,
 		"kind": kind,
 		"x": x,
 		"y": y,
-		"hp": spec["hp"],
-		"maxHp": spec["hp"],
-		"speed": spec["speed"],
+		"hp": base_hp,
+		"maxHp": base_hp,
+		"speed": base_speed,
 		"radius": spec["radius"],
 		"range": spec["range"],
-		"damage": spec["damage"],
+		"damage": base_dmg,
 		"fireRate": spec["fireRate"],
 		"angle": 0.0 if faction == "player" else PI,
 		"turretAngle": 0.0 if faction == "player" else PI,
@@ -43,6 +53,7 @@ static func spawn_unit(sim, faction: String, kind: String, x: float, y: float) -
 		"treadAccum": 0.0,
 		"cargoOil": 0.0,
 		"abilityCooldown": 0.0,
+		"is_reversing": false,
 		"stunTimer": 0.0,
 		"truckState": "idle",
 		"roadPath": [],
@@ -150,6 +161,16 @@ static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
 			var push_mag = (1.0 - d / min_dist) * (26.0 if u["targetPos"] == null else 40.0)
 			sep_push += (delta_pos / d) * push_mag
 
+	# Dynamic Building & Structure Avoidance
+	if not is_airborne:
+		for s in sim.structures:
+			var delta_s = cur_vec - Vector2(s["x"], s["y"])
+			var min_s_dist = u["radius"] + s["radius"] + 8.0
+			var dist_s_sq = delta_s.length_squared()
+			if dist_s_sq < min_s_dist * min_s_dist and dist_s_sq > 0.001:
+				var ds = sqrt(dist_s_sq)
+				sep_push += (delta_s / ds) * (1.0 - ds / min_s_dist) * 55.0
+
 	if sep_push != Vector2.ZERO:
 		var nx = u["x"] + sep_push.x * dt
 		var ny = u["y"] + sep_push.y * dt
@@ -232,12 +253,16 @@ static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
 					u["targetPos"] = u["waypointQueue"].pop_front()
 				else:
 					u["targetPos"] = null
+					u["is_reversing"] = false
 					u["guardPos"] = cur_vec
 					if u["stance"] == "attack_move":
 						u["stance"] = "guard"
 		else:
 			var cur_tile = Pathfinding.get_tile_at_world(sim.map, u["x"], u["y"])
 			var speed = u["speed"]
+			var is_rev = u.get("is_reversing", false)
+			if is_rev:
+				speed *= Constants.REVERSE_SPEED_RATIO
 			if u["stance"] == "retreat":
 				speed *= 1.15 # Sprint boost when retreating
 			if u["faction"] == "player" and sim.combat_surge_active:
@@ -263,13 +288,16 @@ static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
 				if Pathfinding.is_point_passable_for_land(sim.map, cand_x, cand_y):
 					u["x"] = cand_x
 					u["y"] = cand_y
-					u["angle"] = dir.angle()
+					if not is_rev:
+						u["angle"] = dir.angle()
 				elif Pathfinding.is_point_passable_for_land(sim.map, u["x"], cand_y):
 					u["y"] = cand_y
-					u["angle"] = Vector2(0, dir.y).angle()
+					if not is_rev:
+						u["angle"] = Vector2(0, dir.y).angle()
 				elif Pathfinding.is_point_passable_for_land(sim.map, cand_x, u["y"]):
 					u["x"] = cand_x
-					u["angle"] = Vector2(dir.x, 0).angle()
+					if not is_rev:
+						u["angle"] = Vector2(dir.x, 0).angle()
 				else:
 					# Path blocked, advance queue or halt
 					if u["waypointQueue"].size() > 0:
@@ -440,9 +468,13 @@ static func train_player_unit(sim, kind: String) -> bool:
 	var sx = phq["x"] + 88.0 + cos(offset_angle) * 26.0
 	var sy = phq["y"] + sin(offset_angle) * 52.0
 	var u = spawn_unit(sim, "player", kind, sx, sy)
-	u["targetPos"] = Vector2(phq["x"] + 170.0 + cos(offset_angle) * 32.0, phq["y"] + sin(offset_angle) * 58.0)
+	if sim.player_rally_point != Vector2.ZERO:
+		u["targetPos"] = sim.player_rally_point
+		u["guardPos"] = sim.player_rally_point
+	else:
+		u["targetPos"] = Vector2(phq["x"] + 170.0 + cos(offset_angle) * 32.0, phq["y"] + sin(offset_angle) * 58.0)
+		u["guardPos"] = u["targetPos"]
 	u["stance"] = "guard"
-	u["guardPos"] = u["targetPos"]
 	sim.spawn_burst(sx, sy, "smoke", 6, Color("#b8aa8f"), 45.0)
 	sim.sound_triggered.emit("unit_ready")
 	return true
@@ -542,6 +574,7 @@ static func issue_player_command(sim, world_x: float, world_y: float, shift_queu
 	var ehq = sim.map["enemyHQ"]
 	if Vector2(world_x, world_y).distance_to(Vector2(ehq["x"], ehq["y"])) < 52.0:
 		for u in selected:
+			u["is_reversing"] = false
 			u["targetHqFaction"] = "enemy"
 			u["targetEntityId"] = null
 			u["targetBridgeId"] = null
@@ -565,6 +598,7 @@ static func issue_player_command(sim, world_x: float, world_y: float, shift_queu
 			clicked_enemy = u
 	if clicked_enemy != null:
 		for u in selected:
+			u["is_reversing"] = false
 			u["targetEntityId"] = clicked_enemy["id"]
 			u["targetBridgeId"] = null
 			u["targetHqFaction"] = null
@@ -581,6 +615,7 @@ static func issue_player_command(sim, world_x: float, world_y: float, shift_queu
 	if not clicked_bridge.is_empty():
 		if clicked_bridge["status"] == "intact":
 			for u in selected:
+				u["is_reversing"] = false
 				u["targetBridgeId"] = clicked_bridge["id"]
 				u["targetEntityId"] = null
 				u["targetHqFaction"] = null
@@ -595,6 +630,7 @@ static func issue_player_command(sim, world_x: float, world_y: float, shift_queu
 	# 4. Standard Group Movement in Tactical Formations
 	var formation_slots = calculate_formation_positions(selected, Vector2(world_x, world_y))
 	for u in selected:
+		u["is_reversing"] = false
 		u["targetEntityId"] = null
 		u["targetBridgeId"] = null
 		u["targetHqFaction"] = null
@@ -613,6 +649,35 @@ static func issue_player_command(sim, world_x: float, world_y: float, shift_queu
 	sim.order_pulse = { "x": world_x, "y": world_y, "color": Color("#78d464"), "timer": 0.55, "type": "move" }
 	sim.sound_triggered.emit("order_move")
 	return true
+
+static func issue_player_reverse_move(sim, world_x: float, world_y: float, shift_queued: bool = false) -> bool:
+	if sim.phase != "playing":
+		return false
+	var selected = get_selected_player_combat_units(sim)
+	if selected.is_empty():
+		return false
+		
+	var dest = Vector2(world_x, world_y)
+	var issued = false
+	for u in selected:
+		if u["kind"] != "helicopter":
+			issued = true
+			u["is_reversing"] = true
+			u["targetEntityId"] = null
+			u["targetBridgeId"] = null
+			u["targetHqFaction"] = null
+			u["stance"] = "guard"
+			if shift_queued and (u["targetPos"] != null or u["waypointQueue"].size() > 0):
+				u["waypointQueue"].push_back(dest)
+			else:
+				u["waypointQueue"].clear()
+				u["targetPos"] = dest
+				
+	if issued:
+		sim.order_pulse = { "x": world_x, "y": world_y, "color": Color("#f59e0b"), "timer": 0.55, "type": "reverse" }
+		sim.sound_triggered.emit("bark_retreat")
+		sim.sound_triggered.emit("order_click")
+	return issued
 
 static func issue_player_attack_move(sim, world_x: float, world_y: float, shift_queued: bool = false) -> bool:
 	if sim.phase != "playing":

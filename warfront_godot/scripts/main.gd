@@ -89,6 +89,9 @@ func _on_micro_action_requested(action_id: String) -> void:
 		sim.stop_selected_units()
 	elif action_id == "hold":
 		sim.set_selected_stance("hold_ground")
+	elif action_id == "reverse":
+		var m_pos = get_global_mouse_position()
+		sim.issue_player_reverse_move(m_pos.x, m_pos.y, Input.is_key_pressed(KEY_SHIFT))
 	elif action_id == "retreat":
 		sim.retreat_selected_units()
 	elif action_id == "ability":
@@ -216,6 +219,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_micro_action_requested("stop")
 		elif event.keycode == KEY_H:
 			_on_micro_action_requested("hold")
+		elif event.keycode == KEY_G:
+			_on_micro_action_requested("reverse")
+		elif event.keycode == KEY_Y:
+			var m_pos = get_global_mouse_position()
+			sim.set_player_rally_point(m_pos.x, m_pos.y)
 		elif event.keycode == KEY_R:
 			_on_micro_action_requested("retreat")
 		elif event.keycode == KEY_F:
@@ -364,6 +372,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			var issued = sim.issue_player_command(world_pos.x, world_pos.y, shift)
 			if issued:
 				sound.play_sound("order_click")
+			else:
+				# If no combat units were selected, set base Rally Point!
+				sim.set_player_rally_point(world_pos.x, world_pos.y)
 
 	elif event is InputEventMouseMotion:
 		var world_pos = get_global_mouse_position()

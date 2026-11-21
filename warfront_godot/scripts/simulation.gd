@@ -56,6 +56,11 @@ var airdrop_timer: float = 40.0
 var cargo_shadows: Array[Dictionary] = []
 var recent_player_kills: Array[float] = []
 
+var player_rally_point: Vector2 = Vector2.ZERO
+var player_doctrine: String = ""
+var enemy_doctrine: String = ""
+var reverse_move_mode: bool = false
+
 var next_unit_id: int = 1
 var next_projectile_id: int = 1
 var elapsed_seconds: float = 0.0
@@ -121,6 +126,10 @@ func reset(th: String = theater, sd: int = seed_val, start_phase: String = "play
 	combat_surge_active = false
 	combat_surge_timer = 0.0
 	airdrop_timer = 45.0
+	player_rally_point = Vector2.ZERO
+	player_doctrine = ""
+	enemy_doctrine = ""
+	reverse_move_mode = false
 	for p in particles:
 		p["active"] = false
 	particle_cursor = 0
@@ -330,6 +339,16 @@ func issue_player_command(world_x: float, world_y: float, shift_queued: bool = f
 
 func issue_player_attack_move(world_x: float, world_y: float, shift_queued: bool = false) -> bool:
 	return SimUnits.issue_player_attack_move(self, world_x, world_y, shift_queued)
+
+func issue_player_reverse_move(world_x: float, world_y: float, shift_queued: bool = false) -> bool:
+	return SimUnits.issue_player_reverse_move(self, world_x, world_y, shift_queued)
+
+func set_player_rally_point(world_x: float, world_y: float) -> void:
+	player_rally_point = Vector2(world_x, world_y)
+	sound_triggered.emit("radio_in")
+	push_event("rally_point_set", "good")
+	spawn_floating_text(world_x, world_y - 20.0, "[ RALLY POINT // راية التجمع ]", Color("#38bdf8"), 1.25)
+	spawn_particle("ring", world_x, world_y, 0.0, 0.0, 4.0, 36.0, 0.35, Color("#38bdf8"))
 
 func stop_selected_units() -> void:
 	SimUnits.stop_selected_units(self)

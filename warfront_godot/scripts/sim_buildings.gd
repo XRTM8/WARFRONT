@@ -117,9 +117,9 @@ static func place_structure(sim, kind: String, x: float, y: float, faction: Stri
 static func update_structures(sim, dt: float) -> void:
 	for i in range(sim.structures.size() - 1, -1, -1):
 		var s = sim.structures[i]
-		if s["hitFlash"] > 0.0:
+		if s.get("hitFlash", 0.0) > 0.0:
 			s["hitFlash"] = max(0.0, s["hitFlash"] - dt)
-		if s["cooldown"] > 0.0:
+		if s.get("cooldown", 0.0) > 0.0:
 			s["cooldown"] = max(0.0, s["cooldown"] - dt)
 			
 		# 1. Construction Progress
