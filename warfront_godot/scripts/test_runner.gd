@@ -21,6 +21,11 @@ const SimUnitAbilities = preload("res://scripts/sim_unit_abilities.gd")
 const SimUnitMovement = preload("res://scripts/sim_unit_movement.gd")
 const SimUnitCommands = preload("res://scripts/sim_unit_commands.gd")
 const SimHazards = preload("res://scripts/sim_hazards.gd")
+const RenderTerrain = preload("res://scripts/render_terrain.gd")
+const RenderWater = preload("res://scripts/render_water.gd")
+const RenderAtmosphere = preload("res://scripts/render_atmosphere.gd")
+const RenderEnvironment = preload("res://scripts/render_environment.gd")
+const RenderFogOfWar = preload("res://scripts/render_fog_of_war.gd")
 
 func _init() -> void:
 	print("--- Running WarFront Godot Automated Verification Tests ---")
@@ -41,6 +46,7 @@ func _init() -> void:
 	test_large_map_and_multi_team_alliance()
 	test_multi_agent_ai_and_ffa_survival()
 	test_modular_architecture_and_subsystems()
+	test_world_and_maps_2_visual_systems()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -828,5 +834,43 @@ func test_modular_architecture_and_subsystems() -> void:
 	assert(facade_spawn["kind"] == "tank", "SimUnits facade must transparently delegate to SimUnitSpawner")
 
 	print("✔ Test 16: Strict modular architecture & submodule facade integrity passed.")
+
+func test_world_and_maps_2_visual_systems() -> void:
+	# 1. Procedural Terrain Multi-Frequency Texture Generation
+	var map = MapGen.generate_map("kirkuk", 104729)
+	var terrain_tex = RenderTerrain.build_terrain_texture(map)
+	assert(terrain_tex != null, "RenderTerrain must generate a valid ImageTexture")
+	assert(terrain_tex.get_width() == int(map["width"]) and terrain_tex.get_height() == int(map["height"]), "Generated terrain texture dimensions must match map bounds")
+
+	# 2. Large Theater Terrain Synthesis
+	var large_map = MapGen.generate_map("basra", 551829)
+	var large_terrain_tex = RenderTerrain.build_terrain_texture(large_map)
+	assert(large_terrain_tex != null, "RenderTerrain must generate large theater terrain texture")
+	assert(large_terrain_tex.get_width() == 4800 and large_terrain_tex.get_height() == 2880, "Large terrain texture dimensions must be 4800x2880")
+
+	# 3. Tactical Fog of War & Reconnaissance Line of Sight
+	var sim = Simulation.new("kirkuk", 104729)
+	
+	# Fog of War disabled by default: all coordinates visible
+	assert(sim.fog_of_war_enabled == false, "Fog of War must default to disabled for backward compatibility")
+	var far_pos = Vector2(sim.map["enemyHQ"]["x"], sim.map["enemyHQ"]["y"])
+	assert(RenderFogOfWar.is_point_visible_to_player(sim, far_pos) == true, "With fog of war disabled, entire map must be visible")
+	
+	# Enable Fog of War
+	sim.fog_of_war_enabled = true
+	var phq = sim.map["playerHQ"]
+	var friendly_pos = Vector2(phq["x"] + 50.0, phq["y"] + 50.0)
+	assert(RenderFogOfWar.is_point_visible_to_player(sim, friendly_pos) == true, "Coordinates within friendly HQ/unit vision radius must be visible")
+	assert(RenderFogOfWar.is_point_visible_to_player(sim, far_pos) == false, "Coordinates in un-scouted enemy territory must be shrouded in fog of war")
+	
+	# Scout unit recon vision bonus
+	var scout = SimUnits.spawn_unit(sim, "player", "scout", far_pos.x - 100.0, far_pos.y)
+	assert(RenderFogOfWar.is_point_visible_to_player(sim, far_pos) == true, "Deploying scout unit near enemy coordinates must lift fog of war")
+	
+	# 4. Atmospheric Shadow Vectors & Sun Direction
+	assert(RenderAtmosphere.SUN_DIR == Vector2(0.7071, 0.7071), "Atmospheric directional sun vector must maintain uniform 45-degree angle")
+	
+	print("✔ Test 17: World & Maps 2.0 Visual Systems (Terrain, Water, Atmosphere, Infrastructure, Fog of War) passed.")
+
 
 

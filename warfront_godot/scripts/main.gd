@@ -297,6 +297,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_place_structure_requested("sandbag_wall")
 		elif event.keycode == KEY_B:
 			_on_bridge_rebuild_requested()
+		elif event.keycode == KEY_K:
+			sim.fog_of_war_enabled = not sim.fog_of_war_enabled
+			var txt = "[ FOG OF WAR: ACTIVE // ضباب الحرب مفعل ]" if sim.fog_of_war_enabled else "[ FOG OF WAR: OFF // ضباب الحرب معطل ]"
+			sim.spawn_floating_text(camera.position.x, camera.position.y - 40.0, txt, Color("#38bdf8"), 1.2)
 		elif event.keycode == KEY_Z:
 			_on_commander_power_requested("airstrike")
 		elif event.keycode == KEY_X:

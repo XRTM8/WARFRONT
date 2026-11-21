@@ -76,6 +76,7 @@ var enemy_trucks_destroyed: int = 0
 var build_mode: String = "none" # "none", "turret"
 var attack_move_mode: bool = false
 var order_pulse: Dictionary = {} # { x, y, color, timer }
+var fog_of_war_enabled: bool = false
 
 var ai_decision_timer: float = 5.0
 var ai_wave_count: int = 0
