@@ -2,6 +2,7 @@ class_name SimProductionQueue
 extends RefCounted
 
 const Constants = preload("res://scripts/constants.gd")
+const RenderGhostFormation = preload("res://scripts/render_ghost_formation.gd")
 
 static func init_production_system(sim) -> void:
 	if not sim.has_meta("production_queues"):
@@ -10,6 +11,8 @@ static func init_production_system(sim) -> void:
 			"enemy": _create_empty_category_dict()
 		}
 		sim.set_meta("production_queues", queues)
+	if not sim.has_meta("rally_targeting_category"):
+		sim.set_meta("rally_targeting_category", "")
 
 static func _create_empty_category_dict() -> Dictionary:
 	var d = {}
@@ -17,6 +20,7 @@ static func _create_empty_category_dict() -> Dictionary:
 		d[cat] = {
 			"items": [],
 			"rally_point": Vector2.ZERO,
+			"formation_slots": [],
 			"state": "idle", # "idle", "pending_rally", "producing"
 			"progress": 0.0,
 			"current_unit": "",
@@ -83,11 +87,6 @@ static func queue_unit(sim, faction: String, kind: String) -> bool:
 	var queues = get_queues(sim, faction)
 	var cat_data = queues[category]
 	
-	# Determine effective rally point (inherit global player rally point if set)
-	if cat_data["rally_point"] == Vector2.ZERO:
-		if faction == "player" and sim.player_rally_point != Vector2.ZERO:
-			cat_data["rally_point"] = sim.player_rally_point
-	
 	var base_time = spec.get("build_time", 3.0)
 	var item = {
 		"kind": kind,
@@ -96,24 +95,32 @@ static func queue_unit(sim, faction: String, kind: String) -> bool:
 	}
 	cat_data["items"].push_back(item)
 	
-	# If currently idle, check if rally point exists
-	if cat_data["state"] == "idle":
-		if cat_data["rally_point"] == Vector2.ZERO:
-			cat_data["state"] = "pending_rally"
-		else:
-			_start_next_item(sim, faction, category)
+	# Every new batch strictly requires manual confirmation of destination!
+	if cat_data["state"] == "idle" or cat_data["rally_point"] == Vector2.ZERO:
+		cat_data["state"] = "pending_rally"
+		cat_data["rally_point"] = Vector2.ZERO
+		cat_data["formation_slots"].clear()
+		if faction == "player":
+			sim.set_meta("rally_targeting_category", category)
+	elif cat_data["state"] == "producing":
+		# Dynamically recalculate formation slots to incorporate newly queued unit
+		cat_data["formation_slots"] = RenderGhostFormation.calculate_formation_positions(cat_data["items"], cat_data["rally_point"], Vector2.RIGHT)
 			
 	return true
 
-static func set_category_rally_point(sim, faction: String, category: String, point: Vector2) -> void:
+static func set_category_rally_point(sim, faction: String, category: String, point: Vector2, fwd: Vector2 = Vector2.RIGHT) -> void:
 	var queues = get_queues(sim, faction)
 	if not queues.has(category):
 		return
 	var cat_data = queues[category]
 	cat_data["rally_point"] = point
+	cat_data["formation_slots"] = RenderGhostFormation.calculate_formation_positions(cat_data["items"], point, fwd)
 	
-	# If pending rally, start production immediately
-	if cat_data["state"] == "pending_rally" and cat_data["items"].size() > 0:
+	if faction == "player" and sim.has_meta("rally_targeting_category"):
+		sim.set_meta("rally_targeting_category", "")
+	
+	# Start production immediately once rally destination is established
+	if cat_data["items"].size() > 0:
 		_start_next_item(sim, faction, category)
 
 static func cancel_queued_unit(sim, faction: String, category: String, index: int = -1) -> bool:
@@ -170,6 +177,17 @@ static func tick_production(sim, dt: float) -> void:
 		var queues = get_queues(sim, faction)
 		for cat in queues.keys():
 			var cat_data = queues[cat]
+			
+			# Check arrival of alive units at their assigned formation slots
+			var slots = cat_data.get("formation_slots", [])
+			for s in slots:
+				if s.get("claimed", false) and not s.get("arrived", false):
+					for u in sim.units:
+						if u.get("alive", false) and u.get("assigned_slot_id", -1) == s["id"]:
+							if Vector2(u["x"], u["y"]).distance_to(s["pos"]) < 28.0:
+								s["arrived"] = true
+								break
+			
 			if cat_data["state"] != "producing":
 				continue
 				
@@ -194,10 +212,19 @@ static func _complete_unit(sim, faction: String, category: String) -> void:
 	var spawn_pos = _find_spawn_position(sim, faction, category)
 	var u = sim.spawn_unit(faction, kind, spawn_pos.x, spawn_pos.y)
 	
-	var rally = cat_data["rally_point"]
-	if rally != Vector2.ZERO:
-		u["targetPos"] = rally
-		u["guardPos"] = rally
+	# Assign unit to its dedicated smart formation slot
+	var target_dest = cat_data["rally_point"]
+	var slots = cat_data.get("formation_slots", [])
+	for s in slots:
+		if not s.get("claimed", false):
+			s["claimed"] = true
+			target_dest = s["pos"]
+			u["assigned_slot_id"] = s["id"]
+			break
+			
+	if target_dest != Vector2.ZERO:
+		u["targetPos"] = target_dest
+		u["guardPos"] = target_dest
 		u["stance"] = "guard"
 		
 	sim.spawn_burst(spawn_pos.x, spawn_pos.y, "smoke", 6, Color("#b8aa8f"), 40.0)

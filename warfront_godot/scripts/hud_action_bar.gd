@@ -11,6 +11,8 @@ var building_buttons: Dictionary = {}
 var on_train_callback: Callable
 var on_place_callback: Callable
 
+var current_sim = null
+
 func build_action_bar(parent: Control, on_train: Callable, on_rebuild: Callable, on_place_structure: Callable) -> void:
 	on_train_callback = on_train
 	on_place_callback = on_place_structure
@@ -20,15 +22,14 @@ func build_action_bar(parent: Control, on_train: Callable, on_rebuild: Callable,
 		func(kind: String):
 			on_train.call(kind),
 		func(kind: String):
-			# Right click cancel from queue
-			var cat = Constants.UNIT_SPECS.get(kind, {}).get("category", "war_factory")
-			# Will be refunded via SimProductionQueue
-			pass,
+			if current_sim != null:
+				var cat = Constants.UNIT_SPECS.get(kind, {}).get("category", "war_factory")
+				current_sim.cancel_queued_unit("player", cat),
 		func(kind: String):
 			on_place_structure.call(kind),
 		func(cat: String):
-			# Rally mode requested
-			pass
+			if current_sim != null:
+				current_sim.set_meta("rally_targeting_category", cat)
 	)
 	
 	build_buttons = drawer.unit_cards
@@ -41,4 +42,5 @@ func switch_category(cat_id: String) -> void:
 func update(sim) -> void:
 	if sim == null:
 		return
+	current_sim = sim
 	drawer.update_production_ui(sim)

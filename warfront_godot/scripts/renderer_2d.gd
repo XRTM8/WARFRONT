@@ -12,6 +12,7 @@ const RenderStructures = preload("res://scripts/render_structures.gd")
 const RenderUnits = preload("res://scripts/render_units.gd")
 const RenderFX = preload("res://scripts/render_fx.gd")
 const SimBuildings = preload("res://scripts/sim_buildings.gd")
+const RenderGhostFormation = preload("res://scripts/render_ghost_formation.gd")
 
 var sim: Simulation = null
 var terrain_texture: ImageTexture = null
@@ -176,6 +177,10 @@ func _draw() -> void:
 	if sim.attack_move_mode:
 		var m_pos = get_global_mouse_position()
 		RenderFX.draw_attack_move_reticle(self, m_pos, sim.sim_time)
+
+	# 22.5 R.U.S.E. Holographic Ghost Formations
+	var ghost_cursor = sim.get_meta("mock_mouse_pos") if sim.has_meta("mock_mouse_pos") else get_global_mouse_position()
+	RenderGhostFormation.draw_ghost_formations(self, default_font, sim, ghost_cursor, sim.sim_time)
 
 	# 23. Atmospheric Lighting & Drifting Dust Motes
 	RenderAtmosphere.draw_theater_atmosphere(self, map.get("theater", "kirkuk"), sim.sim_time, view_rect)

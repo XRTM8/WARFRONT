@@ -955,7 +955,8 @@ func test_combined_arms_production_and_gated_queues() -> void:
 	assert(sim.units.size() == initial_units_count + 1, "First unit in queue must complete and spawn")
 	var deployed_infantry = sim.units[sim.units.size() - 1]
 	assert(deployed_infantry["kind"] == "infantry_rifle", "Spawned unit must be infantry_rifle")
-	assert(deployed_infantry["targetPos"] == rally_dest, "Newly trained unit must automatically march to the designated rally waypoint")
+	assert(deployed_infantry["targetPos"].distance_to(rally_dest) <= 60.0, "Newly trained unit must automatically march to its designated R.U.S.E. formation slot")
+	assert(queues["barracks"]["formation_slots"].size() == 5, "Batch must generate exactly 5 smart formation slots")
 	assert(queues["barracks"]["items"].size() == 4, "Queue must decrement to 4 units remaining")
 
 	# 4. Multi-Building Production Speed Stacking

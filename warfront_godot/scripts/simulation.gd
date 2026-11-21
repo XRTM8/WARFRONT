@@ -407,6 +407,9 @@ func train_player_unit(kind: String) -> bool:
 func queue_unit(kind: String, faction: String = "player") -> bool:
 	return SimProductionQueue.queue_unit(self, faction, kind)
 
+func cancel_queued_unit(faction: String, category: String, index: int = -1) -> bool:
+	return SimProductionQueue.cancel_queued_unit(self, faction, category, index)
+
 func set_category_rally_point(category: String, point: Vector2, faction: String = "player") -> void:
 	SimProductionQueue.set_category_rally_point(self, faction, category, point)
 

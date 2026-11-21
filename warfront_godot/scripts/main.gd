@@ -330,6 +330,13 @@ func _unhandled_input(event: InputEvent) -> void:
 					sim.commander_targeting_power = ""
 					return
 
+				# R.U.S.E. Batch Rally Waypoint Confirmation
+				var targeting_cat = sim.get_meta("rally_targeting_category") if sim.has_meta("rally_targeting_category") else ""
+				if targeting_cat != "":
+					sim.set_category_rally_point(targeting_cat, world_pos)
+					sound.play_sound("order_click")
+					return
+
 				# Attack-Move tactical targeting execution
 				if sim.attack_move_mode:
 					var shift = Input.is_key_pressed(KEY_SHIFT)
@@ -371,6 +378,9 @@ func _unhandled_input(event: InputEvent) -> void:
 					
 		# Right Click: Command Order (Move, Attack, Demolish) or Cancel Targeting/Build/Attack-Move Mode
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.is_pressed():
+			if sim.has_meta("rally_targeting_category") and sim.get_meta("rally_targeting_category") != "":
+				sim.set_meta("rally_targeting_category", "")
+				return
 			if sim.commander_targeting_power != "":
 				sim.commander_targeting_power = ""
 				return
