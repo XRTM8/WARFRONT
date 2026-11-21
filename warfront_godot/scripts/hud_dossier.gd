@@ -164,7 +164,8 @@ func build_dossier(parent: Control, on_micro_action: Callable = Callable()) -> v
 		{ "id": "attack_move", "label": "[A] اشتباك", "color": Color("#ef4444") },
 		{ "id": "stop", "label": "[S] توقف", "color": Color("#eab308") },
 		{ "id": "hold", "label": "[H] ثبات", "color": Color("#3b82f6") },
-		{ "id": "retreat", "label": "[R] تراجع", "color": Color("#a855f7") }
+		{ "id": "retreat", "label": "[R] تراجع", "color": Color("#a855f7") },
+		{ "id": "ability", "label": "[F] قدرة", "color": Color("#f97316") }
 	]
 	for act in actions:
 		var btn = _create_micro_button(act["id"], act["label"], act["color"])
@@ -306,6 +307,20 @@ func update(sim) -> void:
 				elif act_k == "retreat" and u["stance"] == "retreat":
 					is_active = true
 				b.modulate = Color(1.3, 1.3, 1.3, 1.0) if is_active else Color(1.0, 1.0, 1.0, 0.75)
+				
+			var has_ability = Constants.VETERAN_ABILITIES.has(u["kind"]) and (u["rank"] >= Constants.VETERAN_ABILITIES[u["kind"]]["min_rank"])
+			if micro_buttons.has("ability"):
+				var ab_btn: Button = micro_buttons["ability"]
+				ab_btn.visible = has_ability
+				if has_ability:
+					var spec = Constants.VETERAN_ABILITIES[u["kind"]]
+					var cd = u.get("abilityCooldown", 0.0)
+					if cd > 0.0:
+						ab_btn.text = "⏱️ %.1fs" % cd
+						ab_btn.modulate = Color(0.6, 0.6, 0.6, 0.6)
+					else:
+						ab_btn.text = "[%s] %s" % [spec["hotkey"], spec["name"].substr(0, 12)]
+						ab_btn.modulate = Color(1.3, 1.3, 1.3, 1.0)
 		
 		var stance_names = {
 			"guard": "حراسة ودفاع",

@@ -73,6 +73,12 @@ func _generate_all_sounds() -> void:
 	_sounds["order_stop"] = _synth_order_stop()
 	_sounds["order_hold"] = _synth_order_hold()
 	_sounds["order_retreat"] = _synth_order_retreat()
+	_sounds["war_horn"] = _synth_war_horn()
+	_sounds["turret_crash"] = _synth_turret_crash()
+	_sounds["hydra_salvo"] = _synth_hydra_salvo()
+	_sounds["cargo_flyby"] = _synth_cargo_flyby()
+	_sounds["mine_detonate"] = _synth_mine_detonate()
+	_sounds["multi_kill"] = _synth_multi_kill()
 
 func _synth_cannon() -> AudioStreamWAV:
 	# T-72 125mm Main Battle Tank Cannon
@@ -499,6 +505,134 @@ func _synth_order_retreat() -> AudioStreamWAV:
 		var pip2 = sin(t2 * 1170.0 * TAU) * exp(-20.0 * t2) * 0.55
 		var turbine = sin(t * (300.0 + t * 400.0) * TAU) * exp(-6.0 * t) * 0.35
 		raw[i] = pip1 + pip2 + turbine
+		
+	return _build_wav(raw)
+
+func _synth_war_horn() -> AudioStreamWAV:
+	# Epic Brass War-Horn Fanfare for Combat Surge
+	var duration = 0.85
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var attack = min(1.0, t / 0.08)
+		var decay = exp(-2.8 * t)
+		var env = attack * decay
+		var vib = sin(t * 5.5 * TAU) * 0.015
+		
+		var f1 = (220.0 + vib * 220.0) * TAU
+		var f2 = (330.0 + vib * 330.0) * TAU
+		var f3 = (440.0 + vib * 440.0) * TAU
+		var f4 = (554.0 + vib * 554.0) * TAU
+		
+		var s = sin(t * f1) * 0.45 + sin(t * f2) * 0.35 + sin(t * f3) * 0.25 + sin(t * f4) * 0.15
+		# Brass overdrive saturation
+		s = s + s * s * 0.2
+		raw[i] = s * env * 0.75
+		
+	var filtered = _apply_lowpass(raw, 1800.0)
+	return _build_wav(filtered)
+
+func _synth_turret_crash() -> AudioStreamWAV:
+	# Heavy Flying Turret Ground Slam & Scraping Crunch
+	var duration = 0.45
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var env_impact = exp(-14.0 * t)
+		var env_scrape = exp(-8.0 * t)
+		var thud = sin(t * 78.0 * TAU) * env_impact * 0.8
+		var metal_ring = sin(t * 380.0 * TAU) * exp(-18.0 * t) * 0.4
+		var crunch = (randf() * 2.0 - 1.0) * env_scrape * 0.55
+		raw[i] = thud + metal_ring + crunch
+		
+	var filtered = _apply_lowpass(raw, 850.0)
+	return _build_wav(filtered)
+
+func _synth_hydra_salvo() -> AudioStreamWAV:
+	# Quad Spiraling Hydra Micro-Missile Whistles
+	var duration = 0.48
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var val = 0.0
+		# 4 staggered rocket launches (0ms, 70ms, 140ms, 210ms)
+		for r in range(4):
+			var r_start = float(r) * 0.075
+			if t >= r_start:
+				var rt = t - r_start
+				var renv = exp(-16.0 * rt)
+				var rfreq = (340.0 + rt * 1800.0) * TAU
+				var rwhistle = sin(rt * rfreq) * 0.35
+				var rhiss = (randf() * 2.0 - 1.0) * 0.25
+				val += (rwhistle + rhiss) * renv
+		raw[i] = val * 0.65
+		
+	var filtered = _apply_lowpass(raw, 2400.0)
+	return _build_wav(filtered)
+
+func _synth_cargo_flyby() -> AudioStreamWAV:
+	# Deep Turboprop Cargo Aircraft Flyby Drone
+	var duration = 0.90
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		# Parabolic volume envelope (approaching then departing)
+		var env = sin(clampf(t / duration, 0.0, 1.0) * PI)
+		# Doppler frequency pitch bend
+		var pitch_shift = 1.08 - (t / duration) * 0.16
+		var prop1 = sin(t * 72.0 * pitch_shift * TAU) * 0.5
+		var prop2 = sin(t * 144.0 * pitch_shift * TAU) * 0.35
+		var prop3 = sin(t * 216.0 * pitch_shift * TAU) * 0.2
+		# Propeller blade chop flutter (22 Hz)
+		var flutter = 0.8 + 0.2 * sin(t * 22.0 * TAU)
+		raw[i] = (prop1 + prop2 + prop3) * flutter * env * 0.7
+		
+	var filtered = _apply_lowpass(raw, 650.0)
+	return _build_wav(filtered)
+
+func _synth_mine_detonate() -> AudioStreamWAV:
+	# Heavy Anti-Tank Landmine Crack & Shockwave
+	var duration = 0.42
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var crack = exp(-26.0 * t) * (randf() * 2.0 - 1.0) * 0.85
+		var sub = sin(t * 68.0 * TAU) * exp(-10.0 * t) * 0.75
+		var hollow = sin(t * 280.0 * TAU) * exp(-18.0 * t) * 0.3
+		raw[i] = crack + sub + hollow
+		
+	var filtered = _apply_lowpass(raw, 920.0)
+	return _build_wav(filtered)
+
+func _synth_multi_kill() -> AudioStreamWAV:
+	# High-Tech Tactical Multi-Kill Intercom Tone
+	var duration = 0.28
+	var count = int(duration * SAMPLE_RATE)
+	var raw = PackedFloat32Array()
+	raw.resize(count)
+	
+	for i in range(count):
+		var t = float(i) / SAMPLE_RATE
+		var pip1 = sin(t * 880.0 * TAU) * exp(-22.0 * t) * 0.5
+		var t2 = max(0.0, t - 0.08)
+		var pip2 = sin(t2 * 1320.0 * TAU) * exp(-18.0 * t2) * 0.6
+		var radio_hiss = (randf() * 2.0 - 1.0) * exp(-12.0 * t) * 0.08
+		raw[i] = pip1 + pip2 + radio_hiss
 		
 	return _build_wav(raw)
 

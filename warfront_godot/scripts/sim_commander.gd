@@ -226,12 +226,114 @@ static func _update_recon_sweeps(sim, dt: float) -> void:
 			sim.active_recon_sweeps.remove_at(i)
 
 static func _trigger_supply_drop(sim, target_world: Vector2, _faction: String) -> void:
-	# Air drop two heavy crude oil crates
-	spawn_salvage(sim, target_world.x - 18.0, target_world.y, 80)
-	spawn_salvage(sim, target_world.x + 18.0, target_world.y, 80)
-	sim.spawn_burst(target_world.x, target_world.y, "smoke", 14, Color("#dcd3c1"), 60.0)
-	sim.sound_triggered.emit("capture")
+	trigger_airdrop(sim, target_world, "fuel_cache")
 	sim.push_event("supply_dropped", "good")
+
+# ------------------------------------------------------------------------------
+# 4. Strategic Airborne Airdrops & Parachute Logistics
+# ------------------------------------------------------------------------------
+
+static func trigger_airdrop(sim, target_world: Vector2, type_id: String) -> void:
+	var angle = randf_range(-0.15, 0.15)
+	var dir = Vector2(cos(angle), sin(angle))
+	
+	sim.cargo_shadows.push_back({
+		"start_pos": target_world - dir * 750.0,
+		"end_pos": target_world + dir * 750.0,
+		"dir": dir,
+		"progress": 0.0,
+		"duration": 2.5
+	})
+	sim.sound_triggered.emit("cargo_flyby")
+	
+	sim.airdrop_crates.push_back({
+		"id": randi(),
+		"x": target_world.x,
+		"y": target_world.y,
+		"altitude": 280.0,
+		"type": type_id,
+		"landed": false,
+		"life": 75.0,
+		"maxLife": 75.0
+	})
+	sim.push_event("airdrop_inbound", "good")
+
+static func update_airdrop_crates(sim, dt: float) -> void:
+	for i in range(sim.airdrop_crates.size() - 1, -1, -1):
+		var crate = sim.airdrop_crates[i]
+		if not crate["landed"]:
+			crate["altitude"] = max(0.0, crate["altitude"] - dt * 95.0)
+			if crate["altitude"] <= 0.0:
+				crate["landed"] = true
+				sim.sound_triggered.emit("turret_crash")
+				sim.camera_trauma = min(1.0, sim.camera_trauma + 0.18)
+				sim.spawn_burst(crate["x"], crate["y"], "smoke", 14, Color("#dcd3c1"), 65.0)
+				sim.spawn_particle("ring", crate["x"], crate["y"], 0.0, 0.0, 6.0, 38.0, 0.35, Color("#fbbf24"))
+				sim.spawn_floating_text(crate["x"], crate["y"] - 18.0, "📦 هبوط الإنزال الجوي!", Color("#ffd700"), 1.2)
+		else:
+			crate["life"] -= dt
+			if crate["life"] <= 0.0:
+				sim.airdrop_crates.remove_at(i)
+				continue
+				
+			# Beacon signal flare particles
+			if randf() < 0.2:
+				sim.spawn_particle("smoke", crate["x"], crate["y"] - 8.0, 0.0, -22.0, 3.0, 10.0, 0.8, Color(0.2, 0.8, 0.3, 0.85))
+				
+			# Check capture by ground units
+			var c_pos = Vector2(crate["x"], crate["y"])
+			var captured_by = ""
+			for u in sim.units:
+				if u["alive"] and u["kind"] != "helicopter":
+					if Vector2(u["x"], u["y"]).distance_to(c_pos) <= 26.0:
+						captured_by = u["faction"]
+						break
+						
+			if captured_by != "":
+				var spec = Constants.AIRDROP_TYPES.get(crate["type"], Constants.AIRDROP_TYPES["fuel_cache"])
+				if captured_by == "player":
+					sim.sound_triggered.emit("capture")
+					sim.add_combat_momentum(18.0)
+					sim.push_event("airdrop_secured", "good")
+					
+					if crate["type"] == "nano_repair":
+						# Instant 100% repair & +120 XP to nearby player units
+						for u in sim.units:
+							if u["alive"] and u["faction"] == "player":
+								if Vector2(u["x"], u["y"]).distance_to(c_pos) <= 140.0:
+									u["hp"] = u["maxHp"]
+									sim.award_unit_xp(u, 120.0)
+									sim.spawn_particle("ring", u["x"], u["y"], 0.0, 0.0, 8.0, 36.0, 0.3, Color("#38bdf8"))
+						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "🔧 تم تفعيل نانو الصيانة الفورية!", Color("#38bdf8"), 1.5)
+					elif crate["type"] == "armor_reinforce":
+						# Spawn an elite battle tank right at the drop zone!
+						var t = sim.spawn_unit("player", "tank", crate["x"], crate["y"])
+						t["rank"] = 2
+						t["hp"] = t["maxHp"]
+						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "🛡️ وصول دعم مدرع من النخبة!", Color("#84cc16"), 1.5)
+					else:
+						# Fuel cache
+						var oil_rew = spec.get("oil", 240)
+						sim.player_oil += oil_rew
+						sim.player_oil_delivered += oil_rew
+						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "+%d 🛢️ مخزون وقود استراتيجي!" % oil_rew, Color("#facc15"), 1.5)
+				else:
+					# Enemy captured
+					sim.enemy_oil += 180
+					sim.sound_triggered.emit("capture")
+					sim.push_event("airdrop_denied", "warn")
+					sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "⚠️ العدو استولى على صندوق الإمداد!", Color("#ef4444"), 1.5)
+					
+				sim.spawn_burst(crate["x"], crate["y"], "spark", 12, Color("#fbbf24"), 80.0)
+				sim.airdrop_crates.remove_at(i)
+
+static func update_cargo_shadows(sim, dt: float) -> void:
+	for i in range(sim.cargo_shadows.size() - 1, -1, -1):
+		var cs = sim.cargo_shadows[i]
+		cs["progress"] += dt / cs["duration"]
+		if cs["progress"] >= 1.0:
+			sim.cargo_shadows.remove_at(i)
+
 
 # ------------------------------------------------------------------------------
 # 4. Salvage Barrels Pickup System

@@ -91,6 +91,9 @@ func _on_micro_action_requested(action_id: String) -> void:
 		sim.set_selected_stance("hold_ground")
 	elif action_id == "retreat":
 		sim.retreat_selected_units()
+	elif action_id == "ability":
+		var m_pos = get_global_mouse_position()
+		sim.execute_selected_ability(m_pos)
 
 func _on_bridge_rebuild_requested() -> void:
 	for b in sim.map["bridges"]:
@@ -215,6 +218,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_micro_action_requested("hold")
 		elif event.keycode == KEY_R:
 			_on_micro_action_requested("retreat")
+		elif event.keycode == KEY_F:
+			_on_micro_action_requested("ability")
+		elif event.keycode == KEY_T:
+			var m_pos = get_global_mouse_position()
+			sim.deploy_player_landmine(m_pos.x, m_pos.y)
 		elif event.keycode in [KEY_1, KEY_2, KEY_3, KEY_4]:
 			var grp_idx = event.keycode - KEY_0
 			if Input.is_key_pressed(KEY_CTRL):

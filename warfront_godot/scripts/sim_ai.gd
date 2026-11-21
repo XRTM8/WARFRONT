@@ -70,7 +70,16 @@ static func update_enemy_ai(sim, dt: float) -> void:
 				if not threatened_rig.is_empty():
 					break
 					
-		if not threatened_rig.is_empty():
+		# Priority 0: Contest and capture neutral airdrop crates
+		var airdrop_target = Vector2.ZERO
+		for crate in sim.airdrop_crates:
+			if crate.get("landed", false):
+				airdrop_target = Vector2(crate["x"], crate["y"])
+				break
+				
+		if airdrop_target != Vector2.ZERO:
+			target_pos = airdrop_target
+		elif not threatened_rig.is_empty():
 			target_pos = Vector2(threatened_rig["x"], threatened_rig["y"])
 		else:
 			for r in sim.map["rigs"]:

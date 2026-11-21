@@ -367,3 +367,80 @@ const THEATER_PALETTES: Dictionary = {
 		"ford": Color("#2b5372")
 	}
 }
+
+const MOMENTUM_MAX: float = 100.0
+const SURGE_DURATION: float = 14.0
+
+const VETERAN_ABILITIES: Dictionary = {
+	"tank": {
+		"id": "incendiary_shot",
+		"name": "قذيفة خارقة حارقة",
+		"hotkey": "F",
+		"min_rank": 2,
+		"cooldown": 9.0,
+		"damage": 85.0,
+		"napalm_radius": 40.0,
+		"napalm_duration": 6.0,
+		"desc": "تطلق قذيفة خارقة فائقة السرعة تترك منطقة حارقة تسحق المشاة وتذيب دروع الآليات."
+	},
+	"behemoth": {
+		"id": "seismic_barrage",
+		"name": "وابل الحصار الزلزالي",
+		"hotkey": "F",
+		"min_rank": 2,
+		"cooldown": 14.0,
+		"damage": 120.0,
+		"stun_radius": 85.0,
+		"stun_duration": 2.8,
+		"desc": "قصف مدفعي مزدوج عنيف يحدث زلزالاً يشل حركة آليات العدو القريبة ويلحق بها أضراراً بالغة."
+	},
+	"helicopter": {
+		"id": "hydra_salvo",
+		"name": "غارة صواريخ هايدرا",
+		"hotkey": "F",
+		"min_rank": 2,
+		"cooldown": 8.0,
+		"damage": 30.0, # per rocket (4 rockets = 120 dmg)
+		"rocket_count": 4,
+		"desc": "إطلاق رشقة من 4 صواريخ هايدرا موجهة لولبياً تسحق الهدف بضربات متتالية."
+	},
+	"engineer": {
+		"id": "deploy_landmine",
+		"name": "زرع لغم مضاد للدروع",
+		"hotkey": "T",
+		"min_rank": 0,
+		"cost": 25,
+		"cooldown": 5.0,
+		"damage": 190.0,
+		"stun_duration": 4.5,
+		"desc": "يزرع لغماً أرضياً ثقيلاً على الطريق ينفجر عند مرور آليات العدو مشلاً حركتها بالكامل."
+	}
+}
+
+const AIRDROP_TYPES: Dictionary = {
+	"nano_repair": {
+		"id": "nano_repair",
+		"title": "نانو الصيانة والخبرة التكتيكية",
+		"icon": "🔧",
+		"color": Color("#38bdf8"),
+		"desc": "يصلح فوراً كافة آليات الفصيل القريبة إلى 100% ويمنحها +120 نقطة خبرة!"
+	},
+	"fuel_cache": {
+		"id": "fuel_cache",
+		"title": "مخزون وقود استراتيجي عاجل",
+		"icon": "🛢️",
+		"color": Color("#facc15"),
+		"oil": 240,
+		"desc": "يمنح الفصيل فوراً +240 برميل نفط لدعم العمليات الحربية المكثفة!"
+	},
+	"armor_reinforce": {
+		"id": "armor_reinforce",
+		"title": "دعم مدرع فوري من النخبة",
+		"icon": "🛡️",
+		"color": Color("#84cc16"),
+		"unit_kind": "tank",
+		"unit_rank": 2,
+		"desc": "إنزال فوري لدبابة قتالية من رتبة النخبة جاهزة للاشتباك الميداني!"
+	}
+}
+

@@ -296,6 +296,14 @@ func _draw() -> void:
 	# 6.6 Crude Oil Salvage Barrels (Interactive Ground Loot)
 	RenderFX.draw_salvage_crates(self, sim.salvage_crates, sim.sim_time)
 
+	# 6.7 Napalm Fire Patches & Anti-Tank Landmines
+	RenderFX.draw_napalm_patches(self, sim.napalm_patches, sim.sim_time)
+	RenderFX.draw_landmines(self, sim.landmines, sim.sim_time)
+
+	# 6.8 Contested Airborne Airdrop Crates & Parachutes
+	RenderFX.draw_airdrop_crates(self, sim.airdrop_crates, sim.sim_time)
+	RenderFX.draw_cargo_shadows(self, sim.cargo_shadows)
+
 	# 7. Order marker pulse
 	RenderFX.draw_order_pulse(self, sim.order_pulse)
 
@@ -316,6 +324,9 @@ func _draw() -> void:
 		
 	# 10. Particles (Smoke column, fire, shockwaves, sparks, debris)
 	RenderFX.draw_particles(self, sim.particles)
+
+	# 10.2 Catastrophic Flying Turrets Physics
+	RenderFX.draw_flying_turrets(self, sim.flying_turrets)
 
 	# 10.5 High-Altitude Supersonic Airstrike Jet Flybys & Shadows
 	RenderFX.draw_commander_airstrikes(self, sim.active_airstrikes)

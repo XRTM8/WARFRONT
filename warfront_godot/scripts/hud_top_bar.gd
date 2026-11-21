@@ -15,6 +15,9 @@ var enemy_hp_pct_label: Label = null
 var player_hp_bar: ProgressBar = null
 var enemy_hp_bar: ProgressBar = null
 
+var momentum_label: Label = null
+var momentum_bar: ProgressBar = null
+
 func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> void:
 	var top_margin = MarginContainer.new()
 	top_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -144,6 +147,44 @@ func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> v
 	var mid_spacer = Control.new()
 	mid_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_layout.add_child(mid_spacer)
+
+	# Tactical Combat Momentum / Adrenaline Cluster
+	var mom_panel = PanelContainer.new()
+	var mom_style = StyleBoxFlat.new()
+	mom_style.bg_color = Color(0.11, 0.09, 0.06, 0.92)
+	mom_style.border_color = Color("#b45309")
+	mom_style.border_width_left = 1
+	mom_style.border_width_right = 1
+	mom_style.border_width_top = 1
+	mom_style.border_width_bottom = 2
+	mom_style.content_margin_left = 12
+	mom_style.content_margin_right = 12
+	mom_style.content_margin_top = 5
+	mom_style.content_margin_bottom = 5
+	mom_panel.add_theme_stylebox_override("panel", mom_style)
+	top_layout.add_child(mom_panel)
+	
+	var mom_box = VBoxContainer.new()
+	mom_box.add_theme_constant_override("separation", 2)
+	mom_panel.add_child(mom_box)
+	
+	momentum_label = Label.new()
+	momentum_label.text = "⚡ الحماسة القتالية"
+	momentum_label.add_theme_color_override("font_color", Color("#f59e0b"))
+	momentum_label.add_theme_font_size_override("font_size", 10)
+	mom_box.add_child(momentum_label)
+	
+	momentum_bar = ProgressBar.new()
+	momentum_bar.custom_minimum_size = Vector2(100, 8)
+	momentum_bar.max_value = 100.0
+	momentum_bar.value = 0.0
+	momentum_bar.show_percentage = false
+	mom_box.add_child(momentum_bar)
+
+	# Spacer 2
+	var mid_spacer2 = Control.new()
+	mid_spacer2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_layout.add_child(mid_spacer2)
 
 	# Center Command Integrity Cluster
 	var hq_panel = PanelContainer.new()
@@ -292,3 +333,13 @@ func update(sim) -> void:
 		enemy_hp_bar.value = e_pct
 	if enemy_hp_pct_label != null:
 		enemy_hp_pct_label.text = "%d%%" % e_pct
+
+	# 7. Update Combat Momentum
+	if momentum_bar != null:
+		momentum_bar.value = sim.combat_momentum
+		if sim.combat_surge_active:
+			momentum_label.text = "🔥 عاصفة القتال نشطة! (+20% ضرر)"
+			momentum_label.add_theme_color_override("font_color", Color("#fbbf24"))
+		else:
+			momentum_label.text = "⚡ الحماسة القتالية (%d%%)" % int(round(sim.combat_momentum))
+			momentum_label.add_theme_color_override("font_color", Color("#f59e0b"))

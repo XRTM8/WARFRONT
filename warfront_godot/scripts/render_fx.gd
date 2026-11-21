@@ -446,3 +446,137 @@ static func draw_commander_airstrikes(canvas: CanvasItem, airstrikes: Array) -> 
 		canvas.draw_circle(Vector2(-19, 0), 4.5, Color("#fb923c"))
 		canvas.draw_circle(Vector2(-19, 0), 2.5, Color.WHITE)
 		canvas.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+# ------------------------------------------------------------------------------
+# Visceral Combat Juice: Flying Turrets, Airdrops, Landmines & Napalm
+# ------------------------------------------------------------------------------
+
+static func draw_flying_turrets(canvas: CanvasItem, turrets: Array) -> void:
+	for ft in turrets:
+		var shadow_pos = Vector2(ft["x"], ft["y"])
+		var scale_factor = clampf(1.0 / (1.0 + ft["z"] * 0.007), 0.35, 1.0)
+		canvas.draw_circle(shadow_pos, 10.0 * scale_factor, Color(0, 0, 0, 0.45 * scale_factor))
+		
+		var turret_pos = Vector2(ft["x"], ft["y"] - ft["z"])
+		canvas.draw_set_transform(turret_pos, ft["angle"], Vector2.ONE)
+		var t_col = Color(0.24, 0.22, 0.19)
+		var b_col = Color(0.12, 0.11, 0.09)
+		canvas.draw_circle(Vector2.ZERO, 7.5, t_col)
+		canvas.draw_circle(Vector2.ZERO, 5.0, b_col)
+		canvas.draw_line(Vector2.ZERO, Vector2(16.0, 0.0), b_col, 2.5)
+		canvas.draw_circle(Vector2(-2, 0), 3.0, Color("#ea580c"))
+		canvas.draw_circle(Vector2(-2, 0), 1.5, Color("#fde047"))
+		canvas.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+static func draw_airdrop_crates(canvas: CanvasItem, crates: Array, sim_time: float) -> void:
+	for c in crates:
+		var ground_pos = Vector2(c["x"], c["y"])
+		if not c["landed"]:
+			var alt = c["altitude"]
+			var scale_f = clampf(1.0 - (alt / 350.0) * 0.5, 0.3, 1.0)
+			canvas.draw_circle(ground_pos, 12.0 * scale_f, Color(0, 0, 0, 0.35 * scale_f))
+			
+			var air_pos = Vector2(c["x"], c["y"] - alt)
+			var sway = sin(sim_time * 4.0 + ground_pos.x) * 0.12
+			canvas.draw_set_transform(air_pos, sway, Vector2.ONE)
+			
+			var canopy_y = -34.0
+			var ch_col = Color("#e2ded4")
+			canvas.draw_arc(Vector2(0, canopy_y), 24.0, PI, TAU, 20, ch_col, 8.0)
+			canvas.draw_colored_polygon(PackedVector2Array([
+				Vector2(-24, canopy_y),
+				Vector2(-12, canopy_y - 12),
+				Vector2(0, canopy_y - 16),
+				Vector2(12, canopy_y - 12),
+				Vector2(24, canopy_y)
+			]), ch_col)
+			
+			var cord_col = Color(0.18, 0.17, 0.15, 0.7)
+			canvas.draw_line(Vector2(-22, canopy_y + 2), Vector2(-6, -4), cord_col, 1.2)
+			canvas.draw_line(Vector2(-10, canopy_y + 4), Vector2(-3, -4), cord_col, 1.2)
+			canvas.draw_line(Vector2(10, canopy_y + 4), Vector2(3, -4), cord_col, 1.2)
+			canvas.draw_line(Vector2(22, canopy_y + 2), Vector2(6, -4), cord_col, 1.2)
+			
+			canvas.draw_rect(Rect2(-10, -10, 20, 20), Color("#1e293b"))
+			canvas.draw_rect(Rect2(-8, -8, 16, 16), Color("#d97706"))
+			canvas.draw_rect(Rect2(-4, -4, 8, 8), Color("#fef3c7"))
+			canvas.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+		else:
+			var alpha = min(1.0, c["life"] / 6.0)
+			canvas.draw_circle(ground_pos + Vector2(2, 3), 14.0, Color(0, 0, 0, 0.45 * alpha))
+			
+			var r = 20.0 + sin(sim_time * 6.0) * 3.0
+			var r_col = Color("#38bdf8") if c["type"] == "nano_repair" else (Color("#84cc16") if c["type"] == "armor_reinforce" else Color("#f59e0b"))
+			canvas.draw_arc(ground_pos, r, 0, TAU, 24, Color(r_col.r, r_col.g, r_col.b, 0.5 * alpha), 1.5)
+			
+			canvas.draw_colored_polygon(PackedVector2Array([
+				ground_pos + Vector2(8, 2),
+				ground_pos + Vector2(22, -6),
+				ground_pos + Vector2(28, 4),
+				ground_pos + Vector2(16, 8)
+			]), Color(0.88, 0.85, 0.78, 0.75 * alpha))
+			
+			canvas.draw_rect(Rect2(ground_pos.x - 11, ground_pos.y - 11, 22, 22), Color("#0f172a"))
+			canvas.draw_rect(Rect2(ground_pos.x - 9, ground_pos.y - 9, 18, 18), r_col)
+			canvas.draw_rect(Rect2(ground_pos.x - 5, ground_pos.y - 5, 10, 10), Color(0.1, 0.1, 0.1, alpha))
+			
+			var strobe = 0.5 + sin(sim_time * 14.0) * 0.5
+			canvas.draw_circle(ground_pos, 3.0, Color(1.0, 1.0, 1.0, strobe * alpha))
+
+static func draw_landmines(canvas: CanvasItem, landmines: Array, sim_time: float) -> void:
+	for lm in landmines:
+		var pos = Vector2(lm["x"], lm["y"])
+		canvas.draw_circle(pos, 6.0, Color(0.18, 0.16, 0.13, 0.85))
+		canvas.draw_circle(pos, 4.5, Color(0.3, 0.28, 0.24, 0.95))
+		canvas.draw_circle(pos, 2.0, Color(0.1, 0.1, 0.1, 0.95))
+		var is_player = (lm["faction"] == "player")
+		var led_col = Color("#22c55e") if is_player else Color("#ef4444")
+		var blink = 0.4 + sin(sim_time * 6.0 + pos.x) * 0.6
+		canvas.draw_circle(pos + Vector2(0, -2.5), 1.2, Color(led_col.r, led_col.g, led_col.b, blink))
+
+static func draw_napalm_patches(canvas: CanvasItem, patches: Array, sim_time: float) -> void:
+	for np in patches:
+		var pos = Vector2(np["x"], np["y"])
+		var rad = np["radius"]
+		var alpha = min(1.0, np["life"] / 2.0)
+		canvas.draw_circle(pos, rad, Color(0.12, 0.08, 0.05, 0.6 * alpha))
+		canvas.draw_circle(pos, rad * 0.7, Color(0.8, 0.25, 0.05, 0.45 * alpha))
+		var pulse = sin(sim_time * 12.0 + pos.x) * 2.0
+		canvas.draw_arc(pos, rad * 0.85 + pulse, 0, TAU, 20, Color(0.95, 0.5, 0.1, 0.6 * alpha), 2.0)
+		canvas.draw_circle(pos, rad * 0.35, Color(1.0, 0.8, 0.2, 0.5 * alpha))
+
+static func draw_cargo_shadows(canvas: CanvasItem, shadows: Array) -> void:
+	for cs in shadows:
+		var start: Vector2 = cs["start_pos"]
+		var end: Vector2 = cs["end_pos"]
+		var cur_pos = start.lerp(end, cs["progress"])
+		var ang = cs["dir"].angle()
+		
+		canvas.draw_set_transform(cur_pos, ang, Vector2(1.5, 1.5))
+		var s_col = Color(0, 0, 0, 0.28)
+		canvas.draw_colored_polygon(PackedVector2Array([
+			Vector2(45, 0),
+			Vector2(30, -7),
+			Vector2(-20, -8),
+			Vector2(-24, -38),
+			Vector2(-32, -38),
+			Vector2(-28, -8),
+			Vector2(-42, -5),
+			Vector2(-48, -18),
+			Vector2(-54, -18),
+			Vector2(-50, 0),
+			Vector2(-54, 18),
+			Vector2(-48, 18),
+			Vector2(-42, 5),
+			Vector2(-28, 8),
+			Vector2(-32, 38),
+			Vector2(-24, 38),
+			Vector2(-20, 8),
+			Vector2(30, 7)
+		]), s_col)
+		canvas.draw_rect(Rect2(-28, -26, 8, 4), s_col)
+		canvas.draw_rect(Rect2(-28, -16, 8, 4), s_col)
+		canvas.draw_rect(Rect2(-28, 12, 8, 4), s_col)
+		canvas.draw_rect(Rect2(-28, 22, 8, 4), s_col)
+		canvas.draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+

@@ -7,6 +7,8 @@ const Pathfinding = preload("res://scripts/pathfinding.gd")
 const Simulation = preload("res://scripts/simulation.gd")
 const SoundSynth = preload("res://scripts/sound_synth.gd")
 const SimAI = preload("res://scripts/sim_ai.gd")
+const SimCommander = preload("res://scripts/sim_commander.gd")
+const SimUnits = preload("res://scripts/sim_units.gd")
 
 func _init() -> void:
 	print("--- Running WarFront Godot Automated Verification Tests ---")
@@ -22,6 +24,7 @@ func _init() -> void:
 	test_commander_powers_and_gameplay_loop()
 	test_base_building_and_structures()
 	test_unit_ai_and_advanced_controls()
+	test_visceral_fun_and_momentum_overhaul()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -451,3 +454,126 @@ func test_unit_ai_and_advanced_controls() -> void:
 	assert(atk_tank["targetPos"] != null, "Retreating unit must auto-navigate to nearest sanctuary HQ or depot")
 	
 	print("✔ Test 11: Unit AI & Advanced Controls (Flocking, Formations, A-Move, Queued Waypoints, Stances, Smart Priority) passed.")
+
+func test_visceral_fun_and_momentum_overhaul() -> void:
+	var sim = Simulation.new("kirkuk", 888123)
+	
+	# 1. Catastrophic Ammo Rack Detonation & Flying Turret Physics
+	var sacrificial_tank = sim.spawn_unit("enemy", "tank", 500.0, 500.0)
+	var attacker_behemoth = sim.spawn_unit("player", "behemoth", 510.0, 510.0)
+	
+	# Deal massive overkill damage to trigger ammo rack detonation
+	sim.damage_unit(sacrificial_tank, 400.0, attacker_behemoth)
+	assert(not sacrificial_tank["alive"], "Unit must be dead from massive damage")
+	assert(sim.flying_turrets.size() > 0, "Massive overkill must spawn physical flying turret debris")
+	
+	var ft = sim.flying_turrets[0]
+	assert(ft["vz"] > 100.0, "Flying turret must have positive upward launch velocity")
+	assert(ft["gravity"] > 0.0, "Flying turret must be subject to gravity")
+	
+	# Step physics simulation until turret crashes onto the ground
+	var initial_craters = sim.craters.size()
+	for _i in range(50):
+		sim.step(0.05)
+		if sim.flying_turrets.is_empty():
+			break
+	assert(sim.flying_turrets.is_empty(), "Turret must eventually impact ground and be cleared")
+	assert(sim.craters.size() > initial_craters, "Ground impact must create secondary crater")
+	
+	# 2. Combat Momentum & Tactical Surge Overcharge
+	sim.combat_momentum = 0.0
+	sim.combat_surge_active = false
+	
+	# Accumulate momentum via kills / objectives
+	sim.add_combat_momentum(30.0)
+	assert(sim.combat_momentum == 30.0, "Momentum must accumulate")
+	
+	# Push to 100% to trigger Combat Surge
+	sim.add_combat_momentum(75.0)
+	assert(sim.combat_surge_active, "Reaching 100% momentum must trigger Combat Surge")
+	assert(sim.combat_surge_timer > 0.0, "Surge timer must be active")
+	
+	# Test Surge stats on friendly unit
+	var surge_tank = sim.spawn_unit("player", "tank", 400.0, 400.0)
+	surge_tank["cooldown"] = 1.0
+	sim.step(0.05)
+	sim.step(0.05)
+	assert(surge_tank["cooldown"] < 0.88, "Combat surge must accelerate weapon fire rate / cooldown recovery")
+	
+	# Test Surge defensive buff: incoming damage is reduced
+	var pre_hp = surge_tank["hp"]
+	sim.damage_unit(surge_tank, 50.0)
+	var dealt = pre_hp - surge_tank["hp"]
+	assert(dealt < 45.0, "Combat surge must provide defensive armor reinforcement")
+	
+	# 3. Heroic Veteran Abilities
+	# Tank: Incendiary Piercing Shot
+	var vet_tank = sim.spawn_unit("player", "tank", 600.0, 600.0)
+	vet_tank["rank"] = 2 # Elite rank unlocks incendiary shot
+	var ab_res = sim.execute_unit_ability(vet_tank, Vector2(650.0, 600.0))
+	assert(ab_res, "Rank 2 tank must successfully execute incendiary shot")
+	assert(sim.napalm_patches.size() > 0, "Incendiary shot must spawn lingering napalm fire patch")
+	assert(vet_tank["abilityCooldown"] > 0.0, "Ability must trigger cooldown timer")
+	
+	# Behemoth: Seismic Overcharge Barrage
+	var vet_behemoth = sim.spawn_unit("player", "behemoth", 700.0, 700.0)
+	vet_behemoth["rank"] = 2
+	var enemy_victim = sim.spawn_unit("enemy", "scout", 720.0, 700.0)
+	var beh_ab = sim.execute_unit_ability(vet_behemoth, Vector2(720.0, 700.0))
+	assert(beh_ab, "Rank 2 behemoth must successfully execute seismic barrage")
+	assert(enemy_victim["stunTimer"] > 0.0, "Seismic barrage must stun enemy units in radius")
+	
+	# Helicopter: Hydra Rocket Salvo
+	var vet_heli = sim.spawn_unit("player", "helicopter", 800.0, 800.0)
+	vet_heli["rank"] = 2
+	var pre_proj_count = sim.projectiles.size()
+	var heli_ab = sim.execute_unit_ability(vet_heli, Vector2(850.0, 800.0))
+	assert(heli_ab, "Rank 2 helicopter must successfully execute hydra salvo")
+	assert(sim.projectiles.size() >= pre_proj_count + 4, "Hydra salvo must launch 4 spiraling rockets")
+	
+	# Engineer: Anti-Tank Landmine Deployment & Detonation
+	var eng = sim.spawn_unit("player", "engineer", 900.0, 900.0)
+	sim.player_oil = 100
+	var mine_deployed = sim.deploy_player_landmine(910.0, 900.0)
+	assert(mine_deployed, "Engineer must be able to deploy landmine")
+	assert(sim.landmines.size() > 0, "Landmine must be present in simulation")
+	
+	# Enemy drives over landmine
+	var enemy_roller = sim.spawn_unit("enemy", "tank", 910.0, 900.0)
+	sim.step(0.05)
+	assert(sim.landmines.is_empty(), "Stepping on landmine must trigger detonation")
+	assert(enemy_roller["stunTimer"] > 0.0, "Landmine blast must blow off tracks and stun vehicle")
+	assert(enemy_roller["hp"] < enemy_roller["maxHp"], "Landmine blast must deal heavy damage")
+	
+	# 4. Contested Airborne Airdrop Crates
+	sim.airdrop_crates.clear()
+	SimCommander.trigger_airdrop(sim, Vector2(1000.0, 1000.0), "fuel_cache")
+	assert(sim.airdrop_crates.size() == 1, "Airdrop must spawn crate")
+	assert(sim.cargo_shadows.size() == 1, "Airdrop must spawn C-130 cargo shadow")
+	
+	var drop = sim.airdrop_crates[0]
+	assert(drop["altitude"] > 0.0, "Crate must start airborne with parachute")
+	
+	# Simulate descent until landing
+	for _i in range(75):
+		sim.step(0.05)
+		if drop["landed"]:
+			break
+	assert(drop["landed"], "Crate must successfully touch down on the ground")
+	
+	# Player captures airdrop
+	var initial_oil = sim.player_oil
+	var collector = sim.spawn_unit("player", "scout", 1000.0, 1000.0)
+	sim.step(0.05)
+	assert(sim.airdrop_crates.is_empty(), "Capturing crate must consume it")
+	assert(sim.player_oil > initial_oil, "Fuel cache airdrop must award oil to player")
+	
+	# 5. Multi-Kill Combos
+	sim.recent_player_kills.clear()
+	sim.record_player_kill("scout", Vector2(500, 500))
+	assert(sim.recent_player_kills.size() == 1)
+	sim.record_player_kill("tank", Vector2(505, 500))
+	assert(sim.recent_player_kills.size() == 2, "Double kill combo recorded")
+	
+	print("✔ Test 12: Real Gameplay Fun, Visceral Combat & Momentum Systems (Flying Turrets, Combat Surge, Hero Abilities, Mines, Airdrops, Multi-kills) passed.")
+

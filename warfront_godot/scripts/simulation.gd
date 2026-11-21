@@ -45,6 +45,17 @@ var active_directive: Dictionary = {}
 var directive_cycle_timer: float = 3.0
 var commander_targeting_power: String = ""
 
+var flying_turrets: Array[Dictionary] = []
+var combat_momentum: float = 0.0
+var combat_surge_active: bool = false
+var combat_surge_timer: float = 0.0
+var landmines: Array[Dictionary] = []
+var napalm_patches: Array[Dictionary] = []
+var airdrop_crates: Array[Dictionary] = []
+var airdrop_timer: float = 40.0
+var cargo_shadows: Array[Dictionary] = []
+var recent_player_kills: Array[float] = []
+
 var next_unit_id: int = 1
 var next_projectile_id: int = 1
 var elapsed_seconds: float = 0.0
@@ -100,6 +111,16 @@ func reset(th: String = theater, sd: int = seed_val, start_phase: String = "play
 	craters.clear()
 	wrecks.clear()
 	structures.clear()
+	flying_turrets.clear()
+	landmines.clear()
+	napalm_patches.clear()
+	airdrop_crates.clear()
+	cargo_shadows.clear()
+	recent_player_kills.clear()
+	combat_momentum = 0.0
+	combat_surge_active = false
+	combat_surge_timer = 0.0
+	airdrop_timer = 45.0
 	for p in particles:
 		p["active"] = false
 	particle_cursor = 0
@@ -186,15 +207,93 @@ func step(dt: float) -> void:
 			if wrk["life"] > 4.0 and randf() < 0.4:
 				spawn_particle("smoke", wrk["x"] + randf_range(-6.0, 6.0), wrk["y"] + randf_range(-4.0, 4.0), randf_range(-4.0, 4.0), -16.0 - randf() * 10.0, 4.0, 14.0, 0.85, Color("#22201d"))
 
+	# Combat momentum & Tactical Surge management
+	if combat_surge_active:
+		combat_surge_timer -= dt
+		combat_momentum = max(0.0, (combat_surge_timer / Constants.SURGE_DURATION) * Constants.MOMENTUM_MAX)
+		if combat_surge_timer <= 0.0:
+			combat_surge_active = false
+			combat_momentum = 0.0
+			push_event("surge_ended", "normal")
+	else:
+		combat_momentum = max(0.0, combat_momentum - dt * 1.4)
+
 	SimLogistics.update_oil_rigs(self, dt)
 	SimUnits.update_units(self, dt)
 	SimBuildings.update_structures(self, dt)
 	SimCombat.update_projectiles(self, dt)
 	SimCommander.update_commander(self, dt)
+	SimCombat.update_flying_turrets(self, dt)
+	SimCombat.update_napalm_patches(self, dt)
+	SimCombat.update_landmines(self, dt)
+	SimCommander.update_airdrop_crates(self, dt)
+	SimCommander.update_cargo_shadows(self, dt)
 	
 	if phase == "playing":
+		airdrop_timer -= dt
+		if airdrop_timer <= 0.0:
+			airdrop_timer = randf_range(70.0, 95.0)
+			_spawn_ambient_airdrop()
+			
 		SimAI.update_enemy_ai(self, dt)
 		SimAI.check_win_loss(self)
+
+func _spawn_ambient_airdrop() -> void:
+	if map.is_empty():
+		return
+	var drop_x = randf_range(map["width"] * 0.32, map["width"] * 0.68)
+	var drop_y = randf_range(map["height"] * 0.22, map["height"] * 0.78)
+	var keys = Constants.AIRDROP_TYPES.keys()
+	var type_id = keys[randi() % keys.size()]
+	SimCommander.trigger_airdrop(self, Vector2(drop_x, drop_y), type_id)
+
+func add_combat_momentum(amount: float) -> void:
+	if combat_surge_active or amount <= 0.0:
+		return
+	combat_momentum = min(Constants.MOMENTUM_MAX, combat_momentum + amount)
+	if combat_momentum >= Constants.MOMENTUM_MAX:
+		combat_surge_active = true
+		combat_surge_timer = Constants.SURGE_DURATION
+		sound_triggered.emit("war_horn")
+		camera_trauma = min(1.0, camera_trauma + 0.45)
+		push_event("surge_active", "good")
+		var phq = map.get("playerHQ", {})
+		if not phq.is_empty():
+			spawn_floating_text(phq["x"], phq["y"] - 55.0, "⚡ عاصفة القتال نشطة! هجوم شامل! ⚡", Color("#f59e0b"), 2.2)
+
+func record_player_kill(kind: String, pos: Vector2) -> void:
+	var now = sim_time
+	recent_player_kills.push_back(now)
+	while recent_player_kills.size() > 0 and (now - recent_player_kills[0]) > 4.0:
+		recent_player_kills.pop_front()
+		
+	var count = recent_player_kills.size()
+	if count == 2:
+		spawn_floating_text(pos.x, pos.y - 28.0, "🎖️ ضربة مزدوجة! DOUBLE KILL", Color("#f59e0b"), 1.4)
+		sound_triggered.emit("multi_kill")
+		add_combat_momentum(16.0)
+	elif count >= 3:
+		spawn_floating_text(pos.x, pos.y - 36.0, "🔥 إبادة ثلاثية! TRIPLE KILL", Color("#ef4444"), 1.8)
+		sound_triggered.emit("multi_kill")
+		add_combat_momentum(24.0)
+	else:
+		if kind == "behemoth":
+			spawn_floating_text(pos.x, pos.y - 36.0, "👑 صيد ثمين: تدمير العملاق!", Color("#fbbf24"), 2.0)
+			sound_triggered.emit("multi_kill")
+			add_combat_momentum(25.0)
+		elif kind == "tank" or kind == "artillery":
+			add_combat_momentum(12.0)
+		else:
+			add_combat_momentum(6.0)
+
+func deploy_player_landmine(x: float, y: float) -> bool:
+	return SimUnits.deploy_landmine_at(self, "player", Vector2(x, y))
+
+func execute_selected_ability(target_pos: Vector2) -> bool:
+	return SimUnits.execute_selected_ability(self, target_pos)
+
+func execute_unit_ability(unit: Dictionary, target_pos: Vector2) -> bool:
+	return SimUnits.execute_unit_ability(self, unit, target_pos)
 
 func call_commander_power(power_id: String, target_world: Vector2, faction: String = "player") -> bool:
 	return SimCommander.call_commander_power(self, power_id, target_world, faction)
