@@ -26,6 +26,8 @@ func _init() -> void:
 	test_unit_ai_and_advanced_controls()
 	test_visceral_fun_and_momentum_overhaul()
 	test_tactical_controls_and_asymmetry_overhaul()
+	test_large_map_and_multi_team_alliance()
+	test_multi_agent_ai_and_ffa_survival()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -648,4 +650,93 @@ func test_tactical_controls_and_asymmetry_overhaul() -> void:
 	assert(enemy_combatant["stance"] == "retreat", "Wounded enemy unit (< 28% HP) must fall back in tactical retreat")
 	
 	print("✔ Test 13: AAA RTS Controls & Mechanics Overhaul (Reverse-Move, Rally Points, AI Self-Preservation, Doctrines, Obstacle Avoidance) passed.")
+
+func test_large_map_and_multi_team_alliance() -> void:
+	var sim = Simulation.new("basra", 551829)
+	sim.init_match("basra", "2v2", "vanguard")
+	
+	# 1. Map Dimensions & Scale (4800x2880)
+	assert(sim.map["cols"] == 100 and sim.map["rows"] == 60, "Basra Delta map must be 100x60 tiles")
+	assert(sim.map["width"] == 4800.0 and sim.map["height"] == 2880.0, "Basra Delta map width/height must be 4800x2880 px")
+	
+	# 2. 4 HQs & 4 Strategic Delta Bridges
+	var hqs: Array = sim.map["hqs"]
+	assert(hqs.size() == 4, "Large 4P map must define exactly 4 HQs")
+	assert(sim.map["bridges"].size() == 4, "Delta theater must feature 4 strategic bridges (North, South, East, West)")
+	assert(sim.map["rigs"].size() >= 6, "Delta theater must feature at least 6 oil rigs including refinery island")
+	
+	# 3. 2v2 Slots & Team Alliances
+	assert(sim.slots.size() == 4, "2v2 preset must initialize 4 distinct player/AI slots")
+	assert(sim.slots[0]["team_id"] == 1 and sim.slots[1]["team_id"] == 1, "Slot 0 and Slot 1 must be Team 1 allies")
+	assert(sim.slots[2]["team_id"] == 2 and sim.slots[3]["team_id"] == 2, "Slot 2 and Slot 3 must be Team 2 enemies")
+	assert(sim.slots[0]["is_human"] == true, "Slot 0 must be active human player")
+	assert(sim.slots[1]["is_human"] == false and sim.slots[2]["is_human"] == false, "Slots 1, 2, 3 must be autonomous AI")
+	
+	# 4. Hostility Matrix (Allies vs Hostiles)
+	var u_ally0 = sim.spawn_unit("vanguard", "tank", 400.0, 400.0, 0)
+	var u_ally1 = sim.spawn_unit("vanguard", "tank", 420.0, 420.0, 1)
+	var u_enemy2 = sim.spawn_unit("raiders", "tank", 500.0, 500.0, 2)
+	var u_enemy3 = sim.spawn_unit("raiders", "tank", 520.0, 520.0, 3)
+	
+	assert(not sim.are_hostile(u_ally0, u_ally1), "Team 1 allies (Slot 0 and Slot 1) must never be hostile to each other")
+	assert(sim.are_hostile(u_ally0, u_enemy2), "Slot 0 (Team 1) must be hostile to Slot 2 (Team 2)")
+	assert(sim.are_hostile(u_ally0, u_enemy3), "Slot 0 (Team 1) must be hostile to Slot 3 (Team 2)")
+	assert(not sim.are_hostile(u_enemy2, u_enemy3), "Team 2 allies (Slot 2 and Slot 3) must never be hostile to each other")
+	
+	# 5. Smart Target Selection respects Alliance
+	var smart_target = SimUnits.select_smart_target(sim, u_ally0)
+	assert(smart_target == u_enemy2, "Smart target selection must prioritize hostile enemy unit and ignore allied unit")
+	
+	print("✔ Test 14: Large 4-Player Maps & 2v2 Team Alliance Engine passed.")
+
+func test_multi_agent_ai_and_ffa_survival() -> void:
+	var sim = Simulation.new("zagros", 882194)
+	sim.init_match("zagros", "ffa", "raiders")
+	
+	# 1. 4-Way Free For All Mode
+	assert(sim.slots.size() == 4, "FFA match must initialize 4 distinct combatant slots")
+	for i in range(4):
+		assert(sim.slots[i]["team_id"] == (i + 1), "FFA slot %d must belong to distinct team %d" % [i, i + 1])
+		
+	# Mutual hostility across all combinations
+	for i in range(4):
+		for j in range(4):
+			if i != j:
+				assert(sim.are_hostile(sim.slots[i], sim.slots[j]), "In FFA, Slot %d and Slot %d must be mutually hostile" % [i, j])
+				
+	# 2. Autonomous Multi-Agent AI Production
+	sim.slots[1]["oil"] = 200.0
+	sim.slots[2]["oil"] = 200.0
+	sim.slots[3]["oil"] = 200.0
+	sim.ai_decision_timer = 0.0 # Force immediate AI decision tick
+	
+	var initial_unit_count = sim.units.size()
+	SimAI.update_multi_slot_ai(sim, 0.1)
+	assert(sim.units.size() > initial_unit_count, "Multi-agent AI must autonomously recruit combat units for non-human slots")
+	
+	# Check spawned AI units carry slot_id and distinct colors
+	var found_ai_slot = false
+	for u in sim.units:
+		if u.get("slot_id", 0) > 0:
+			found_ai_slot = true
+			assert(u["targetPos"] != Vector2.ZERO, "AI units must be deployed with tactical combat destinations")
+			assert(u.has("color"), "AI units must be tagged with designated slot alliance colors")
+	assert(found_ai_slot, "At least one AI slot must have deployed a colored unit")
+	
+	# 3. Dynamic Victory / Defeat under Multi-Team Conditions
+	# Defeating all hostile slots triggers Victory
+	for i in range(1, 4):
+		var hq = sim.get_slot_hq(i)
+		hq["hp"] = 0.0
+	SimAI.check_win_loss(sim)
+	assert(sim.phase == "gameover" and sim.outcome == "victory", "Eliminating all hostile HQs must achieve match victory")
+	
+	# Defeating player HQ triggers Defeat
+	sim.init_match("zagros", "ffa", "raiders")
+	var player_hq = sim.get_slot_hq(0)
+	player_hq["hp"] = 0.0
+	SimAI.check_win_loss(sim)
+	assert(sim.phase == "gameover" and sim.outcome == "defeat", "Destruction of player HQ must result in military defeat")
+	
+	print("✔ Test 15: Autonomous Multi-Agent AI & 4-Way FFA / Survival Engine passed.")
 

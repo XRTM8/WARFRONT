@@ -13,6 +13,75 @@ const HQ_MAX_HP: float = 1600.0
 const TRUCK_CARGO_CAPACITY: int = 55
 const REVERSE_SPEED_RATIO: float = 0.70
 
+const MATCH_PRESETS: Dictionary = {
+	"1v1": {
+		"id": "1v1",
+		"name": "مواجهة ثنائية حاسمة",
+		"code": "[ 1 vs 1 DUEL ]",
+		"slots_count": 2,
+		"default_teams": [1, 2],
+		"desc": "مباراة تكتيكية مباشرة 1 ضد 1 بين التحالف والمغاوير."
+	},
+	"2v2": {
+		"id": "2v2",
+		"name": "حلف العمليات المشتركة",
+		"code": "[ 2 vs 2 ALLIANCE ]",
+		"slots_count": 4,
+		"default_teams": [1, 1, 2, 2],
+		"desc": "معركة فرق كبرى: تحالف قاعدتين ضد قاعدتين أخريين."
+	},
+	"ffa": {
+		"id": "ffa",
+		"name": "الاشتباك الشامل (الكل ضد الكل)",
+		"code": "[ 4-WAY FREE FOR ALL ]",
+		"slots_count": 4,
+		"default_teams": [1, 2, 3, 4],
+		"desc": "أربعة جيوش متناحرة تتصارع للسيطرة على كافة حقول النفط."
+	},
+	"1v3": {
+		"id": "1v3",
+		"name": "صمود الحصار المستميت",
+		"code": "[ 1 vs 3 SURVIVAL ]",
+		"slots_count": 4,
+		"default_teams": [1, 2, 2, 2],
+		"desc": "قاعدة وحيدة محاصرة تواجه 3 جيوش معادية متحالفة ضدها."
+	}
+}
+
+const SLOT_DEFAULT_COLORS: Array[Color] = [
+	Color("#22c55e"), # Slot 0: Green (Player)
+	Color("#38bdf8"), # Slot 1: Sky Blue (Ally)
+	Color("#ef4444"), # Slot 2: Crimson Red (Enemy 1)
+	Color("#f97316")  # Slot 3: Amber Orange (Enemy 2)
+]
+
+const THEATER_CONFIGS: Dictionary = {
+	"kirkuk": {
+		"name": "وادي كركوك النفطي",
+		"code": "[ KIRKUK VALLEY // 1v1 ]",
+		"cols": 72,
+		"rows": 40,
+		"max_slots": 2,
+		"desc": "مسرح عمليات كلاسيكي: نهر وسطي و3 جسور ومخاضات تكتيكية."
+	},
+	"basra": {
+		"name": "دلتا البصرة الكبرى",
+		"code": "[ BASRA DELTA // 2v2 & 4-WAY ]",
+		"cols": 100,
+		"rows": 60,
+		"max_slots": 4,
+		"desc": "خريطة عملاقة 4800x2880: دلتا متقاطعة، 4 مقرات في الزوايا، 4 جسور، و6 حقول نفط."
+	},
+	"zagros": {
+		"name": "حوض هضبة زاغروس",
+		"code": "[ ZAGROS BASIN // 4-WAY FFA ]",
+		"cols": 100,
+		"rows": 60,
+		"max_slots": 4,
+		"desc": "حوض صخري واسع 4800x2880 مع 8 حقول نفطية متنازع عليها وممرات جبلية."
+	}
+}
+
 const FACTION_DOCTRINES: Dictionary = {
 	"vanguard": {
 		"id": "vanguard",
@@ -387,6 +456,44 @@ const THEATER_PALETTES: Dictionary = {
 		"rockFace": Color("#313a2d"),
 		"rockShadow": Color("#1d231b"),
 		"ford": Color("#2b5372")
+	},
+	"basra": {
+		"groundA": Color("#927b58"),
+		"groundB": Color("#826d4c"),
+		"groundDetail": Color("#6e5a3c"),
+		"concrete": Color("#757065"),
+		"oilfield": Color("#473c2e"),
+		"waterDeep": Color("#1b4d5e"),
+		"waterShallow": Color("#276378"),
+		"waterFoam": Color("#589cb3"),
+		"roadAsphalt": Color("#353330"),
+		"roadEdge": Color("#524a3c"),
+		"roadStripe": Color("#c49f54"),
+		"bridgeDeck": Color("#545048"),
+		"bridgeSteel": Color("#837d70"),
+		"rockTop": Color("#a88b5c"),
+		"rockFace": Color("#4a3924"),
+		"rockShadow": Color("#2a1f13"),
+		"ford": Color("#2c677c")
+	},
+	"zagros": {
+		"groundA": Color("#8f7a62"),
+		"groundB": Color("#7e6b54"),
+		"groundDetail": Color("#695742"),
+		"concrete": Color("#6e6961"),
+		"oilfield": Color("#42382c"),
+		"waterDeep": Color("#284b5c"),
+		"waterShallow": Color("#335f73"),
+		"waterFoam": Color("#6299ad"),
+		"roadAsphalt": Color("#32312f"),
+		"roadEdge": Color("#4d463b"),
+		"roadStripe": Color("#bf9d58"),
+		"bridgeDeck": Color("#4f4c45"),
+		"bridgeSteel": Color("#7a756b"),
+		"rockTop": Color("#a38865"),
+		"rockFace": Color("#443525"),
+		"rockShadow": Color("#261c13"),
+		"ford": Color("#386377")
 	}
 }
 

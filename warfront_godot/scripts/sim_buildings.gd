@@ -140,9 +140,9 @@ static func update_structures(sim, dt: float) -> void:
 
 		# 2. Active Operational Behaviors
 		if s["kind"] == "repair_depot":
-			# Repair Bay Healing Aura
+			# Repair Bay Healing Aura (Heals self and all allied units)
 			for u in sim.units:
-				if u["alive"] and u["faction"] == s["faction"] and u["kind"] != "turret" and u["hp"] < u["maxHp"]:
+				if u["alive"] and not sim.are_hostile(s, u) and u["kind"] != "turret" and u["hp"] < u["maxHp"]:
 					if Vector2(u["x"], u["y"]).distance_to(Vector2(s["x"], s["y"])) <= Constants.BUILDING_SPECS["repair_depot"]["heal_radius"]:
 						var heal = Constants.BUILDING_SPECS["repair_depot"]["heal_rate"] * dt
 						u["hp"] = min(u["maxHp"], u["hp"] + heal)
@@ -152,7 +152,7 @@ static func update_structures(sim, dt: float) -> void:
 		elif s["kind"] == "turret":
 			# Automated Point Defense Gun
 			if s["cooldown"] <= 0.0:
-				var target = _find_nearest_hostile(sim, s["faction"], Vector2(s["x"], s["y"]), Constants.BUILDING_SPECS["turret"]["range"])
+				var target = _find_nearest_hostile(sim, s, Vector2(s["x"], s["y"]), Constants.BUILDING_SPECS["turret"]["range"])
 				if target != null:
 					var dir = (Vector2(target["x"], target["y"]) - Vector2(s["x"], s["y"])).normalized()
 					s["turretAngle"] = dir.angle()
@@ -170,7 +170,7 @@ static func update_structures(sim, dt: float) -> void:
 		elif s["kind"] == "missile_battery":
 			# Heavy Guided Missile Battery
 			if s["cooldown"] <= 0.0:
-				var target = _find_nearest_hostile(sim, s["faction"], Vector2(s["x"], s["y"]), Constants.BUILDING_SPECS["missile_battery"]["range"])
+				var target = _find_nearest_hostile(sim, s, Vector2(s["x"], s["y"]), Constants.BUILDING_SPECS["missile_battery"]["range"])
 				if target != null:
 					var dir = (Vector2(target["x"], target["y"]) - Vector2(s["x"], s["y"])).normalized()
 					s["turretAngle"] = dir.angle()
@@ -185,12 +185,11 @@ static func update_structures(sim, dt: float) -> void:
 					}, Vector2(target["x"], target["y"]))
 					s["cooldown"] = Constants.BUILDING_SPECS["missile_battery"]["fireRate"]
 
-static func _find_nearest_hostile(sim, my_faction: String, pos: Vector2, max_range: float) -> Variant:
-	var target_faction = "enemy" if my_faction == "player" else "player"
+static func _find_nearest_hostile(sim, source: Variant, pos: Vector2, max_range: float) -> Variant:
 	var best_target = null
 	var best_d = max_range
 	for u in sim.units:
-		if u["alive"] and u["faction"] == target_faction:
+		if u["alive"] and sim.are_hostile(source, u):
 			var d = pos.distance_to(Vector2(u["x"], u["y"]))
 			if d <= best_d:
 				best_d = d

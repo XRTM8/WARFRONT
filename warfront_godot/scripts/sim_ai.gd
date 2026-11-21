@@ -5,6 +5,10 @@ const Constants = preload("res://scripts/constants.gd")
 const Pathfinding = preload("res://scripts/pathfinding.gd")
 
 static func update_enemy_ai(sim, dt: float) -> void:
+	if sim.slots.size() > 2:
+		update_multi_slot_ai(sim, dt)
+		return
+
 	# 1. Update active enemy units & check tactical self-preservation
 	for u in sim.units:
 		if u["alive"] and u["faction"] == "enemy":
@@ -202,7 +206,129 @@ static func _spawn_reinforcement(sim, ehq: Dictionary, target_pos: Vector2) -> v
 		s["targetPos"] = target_pos
 		s["stance"] = "attack"
 
+static func update_multi_slot_ai(sim, dt: float) -> void:
+	for u in sim.units:
+		if not u.get("alive", false):
+			continue
+		var u_slot_id = u.get("slot_id", -1)
+		if u_slot_id >= 0 and u_slot_id < sim.slots.size():
+			var slot = sim.slots[u_slot_id]
+			if not slot.get("is_human", false):
+				if u["kind"] != "truck" and u["kind"] != "turret":
+					if u["hp"] <= u["maxHp"] * 0.28 and u["stance"] != "retreat":
+						u["stance"] = "retreat"
+						sim.spawn_particle("smoke", u["x"], u["y"], 0.0, -12.0, 6.0, 24.0, 0.85, Color(0.85, 0.85, 0.85, 0.7))
+
+	sim.ai_decision_timer -= dt
+	if sim.ai_decision_timer <= 0.0:
+		sim.ai_decision_timer = randf_range(3.2, 5.0)
+		sim.ai_wave_count += 1
+		for slot in sim.slots:
+			if not slot.get("is_human", false) and slot.get("alive", true):
+				_update_slot_ai(sim, slot, dt)
+
+static func _update_slot_ai(sim, slot: Dictionary, _dt: float) -> void:
+	var hq = sim.get_slot_hq(slot["slot_id"])
+	if hq.get("hp", 0.0) <= 0.0:
+		slot["alive"] = false
+		return
+
+	slot["oil"] = slot.get("oil", 100.0) + 15.0
+
+	var hq_pos = Vector2(hq["x"], hq["y"])
+	var target_pos = Vector2.ZERO
+	var candidate_rigs: Array[Dictionary] = []
+	for r in sim.map.get("rigs", []):
+		var r_owner_team = 0
+		for s in sim.slots:
+			if (s.get("faction") == r.get("owner")) or (str(s.get("slot_id")) == str(r.get("owner"))):
+				r_owner_team = s.get("team_id", 0)
+				break
+		if r_owner_team != slot.get("team_id", -1):
+			candidate_rigs.append(r)
+
+	if candidate_rigs.size() > 0:
+		candidate_rigs.sort_custom(func(a, b):
+			var da = hq_pos.distance_to(Vector2(a["x"], a["y"]))
+			var db = hq_pos.distance_to(Vector2(b["x"], b["y"]))
+			return da < db
+		)
+		target_pos = Vector2(candidate_rigs[0]["x"], candidate_rigs[0]["y"])
+	else:
+		var hostile_hqs: Array[Dictionary] = []
+		for other_slot in sim.slots:
+			if other_slot["slot_id"] != slot["slot_id"] and other_slot["team_id"] != slot["team_id"] and other_slot.get("alive", true):
+				var ohq = sim.get_slot_hq(other_slot["slot_id"])
+				if ohq.get("hp", 0.0) > 0.0:
+					hostile_hqs.append(ohq)
+		if hostile_hqs.size() > 0:
+			hostile_hqs.sort_custom(func(a, b):
+				return hq_pos.distance_to(Vector2(a["x"], a["y"])) < hq_pos.distance_to(Vector2(b["x"], b["y"]))
+			)
+			target_pos = Vector2(hostile_hqs[0]["x"], hostile_hqs[0]["y"])
+
+	if target_pos == Vector2.ZERO:
+		target_pos = Vector2(sim.map["width"] * 0.5, sim.map["height"] * 0.5)
+
+	var oil_avail = slot.get("oil", 0.0)
+	var spawn_pos = hq_pos + Vector2(randf_range(-60, 60), randf_range(-60, 60))
+	var unit_type = ""
+	var unit_cost = 0.0
+
+	var roll = randf()
+	if oil_avail >= Constants.UNIT_SPECS["behemoth"]["cost"] and roll < 0.25:
+		unit_type = "behemoth"
+		unit_cost = Constants.UNIT_SPECS["behemoth"]["cost"]
+	elif oil_avail >= Constants.UNIT_SPECS["tank"]["cost"] and roll < 0.65:
+		unit_type = "tank"
+		unit_cost = Constants.UNIT_SPECS["tank"]["cost"]
+	elif oil_avail >= Constants.UNIT_SPECS["helicopter"]["cost"] and roll < 0.82:
+		unit_type = "helicopter"
+		unit_cost = Constants.UNIT_SPECS["helicopter"]["cost"]
+	elif oil_avail >= Constants.UNIT_SPECS["artillery"]["cost"] and roll < 0.92:
+		unit_type = "artillery"
+		unit_cost = Constants.UNIT_SPECS["artillery"]["cost"]
+	elif oil_avail >= Constants.UNIT_SPECS["scout"]["cost"]:
+		unit_type = "scout"
+		unit_cost = Constants.UNIT_SPECS["scout"]["cost"]
+
+	if unit_type != "":
+		slot["oil"] -= unit_cost
+		var u = sim.spawn_unit(slot.get("faction", "raiders"), unit_type, spawn_pos.x, spawn_pos.y, slot["slot_id"])
+		u["targetPos"] = target_pos
+		u["stance"] = "attack"
+
 static func check_win_loss(sim) -> void:
+	if sim.slots.size() > 2:
+		var human_team = 1
+		if sim.active_human_slot >= 0 and sim.active_human_slot < sim.slots.size():
+			human_team = sim.slots[sim.active_human_slot].get("team_id", 1)
+
+		var ally_alive_count = 0
+		var enemy_alive_count = 0
+
+		for s in sim.slots:
+			var hq = sim.get_slot_hq(s["slot_id"])
+			if hq.get("hp", 0.0) <= 0.0:
+				s["alive"] = false
+			elif s.get("alive", true):
+				if s.get("team_id") == human_team:
+					ally_alive_count += 1
+				else:
+					enemy_alive_count += 1
+
+		if ally_alive_count == 0:
+			sim.phase = "gameover"
+			sim.outcome = "defeat"
+			sim.sound_triggered.emit("defeat")
+			sim.push_event("defeat", "warn")
+		elif enemy_alive_count == 0:
+			sim.phase = "gameover"
+			sim.outcome = "victory"
+			sim.sound_triggered.emit("victory")
+			sim.push_event("victory", "good")
+		return
+
 	if sim.map["enemyHQ"]["hp"] <= 0.0:
 		sim.phase = "gameover"
 		sim.outcome = "victory"

@@ -80,24 +80,42 @@ static func draw_minimap(canvas: Control, sim, camera: Camera2D, vp_size: Vector
 	# Bridges
 	for b in map["bridges"]:
 		var b_col = Color("#8bd46a") if b["status"] == "intact" else Color("#ef4444")
-		canvas.draw_rect(Rect2((b["x"] - b["width"] / 2.0) * sx, (b["y"] - b["height"] / 2.0) * sy, max(6.0, b["width"] * sx), max(4.0, b["height"] * sy)), b_col)
+		var bw = b.get("width", 64.0)
+		var bh = b.get("height", 32.0)
+		canvas.draw_rect(Rect2((b["x"] - bw / 2.0) * sx, (b["y"] - bh / 2.0) * sy, max(6.0, bw * sx), max(4.0, bh * sy)), b_col)
 		
 	# Oil Rigs
 	for rig in map["rigs"]:
 		var r_col = Color("#7ce063") if rig["owner"] == "player" else (Color("#ef5350") if rig["owner"] == "enemy" else Color("#f0c45c"))
 		canvas.draw_rect(Rect2(rig["x"] * sx - 2.5, rig["y"] * sy - 2.5, 5, 5), r_col)
 		
-	# HQs
-	var phq = map["playerHQ"]
-	var ehq = map["enemyHQ"]
-	canvas.draw_rect(Rect2(phq["x"] * sx - 3.5, phq["y"] * sy - 3.5, 7, 7), Color("#62d94e"))
-	canvas.draw_rect(Rect2(ehq["x"] * sx - 3.5, ehq["y"] * sy - 3.5, 7, 7), Color("#f2554e"))
+	# HQs (Supports multi-HQ arrays on large maps)
+	var hqs_list = map.get("hqs", [])
+	if hqs_list.size() > 0:
+		for hq in hqs_list:
+			var sid = hq.get("slot_id", 0)
+			var hq_col = Constants.SLOT_DEFAULT_COLORS[sid % Constants.SLOT_DEFAULT_COLORS.size()]
+			canvas.draw_rect(Rect2(hq["x"] * sx - 3.5, hq["y"] * sy - 3.5, 7, 7), hq_col)
+	else:
+		var phq = map["playerHQ"]
+		var ehq = map["enemyHQ"]
+		canvas.draw_rect(Rect2(phq["x"] * sx - 3.5, phq["y"] * sy - 3.5, 7, 7), Color("#62d94e"))
+		canvas.draw_rect(Rect2(ehq["x"] * sx - 3.5, ehq["y"] * sy - 3.5, 7, 7), Color("#f2554e"))
 	
 	# Units
 	for u in sim.units:
 		if not u["alive"]:
 			continue
-		var u_col = Color("#f5c249") if u["kind"] == "truck" else (Color("#b7ff9e") if u["faction"] == "player" else Color("#ff8c85"))
+		var u_col: Color
+		if u.has("color") and u["color"] is Color:
+			u_col = u["color"]
+		elif u["kind"] == "truck":
+			u_col = Color("#f5c249")
+		elif u["faction"] == "player":
+			u_col = Color("#b7ff9e")
+		else:
+			u_col = Color("#ff8c85")
+		canvas.draw_rect(Rect2(u["x"] * sx - 1.5, u["y"] * sy - 1.5, 3, 3), u_col)
 		canvas.draw_rect(Rect2(u["x"] * sx - 1, u["y"] * sy - 1, 2, 2), u_col)
 
 	# Active Tactical Radar Sweep Beam

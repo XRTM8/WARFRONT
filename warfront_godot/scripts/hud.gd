@@ -22,6 +22,7 @@ signal pause_toggled()
 signal commander_power_requested(power_id: String)
 signal place_structure_requested(kind: String)
 signal micro_action_requested(action_id: String)
+signal match_start_requested(theater_id: String, mode_id: String, faction_id: String)
 
 var sim: Simulation = null
 
@@ -187,13 +188,14 @@ func build_tactical_hud() -> void:
 	minimap_control.draw.connect(_on_minimap_draw)
 	minimap_control.gui_input.connect(_on_minimap_input)
 
-	# 4. Tactical Operations Modal (Pause, Debriefing, Theater, Field Manual)
+	# 4. Tactical Operations Modal (Pause, Debriefing, Theater, Field Manual, Match Setup)
 	modal.setup(
 		self,
 		func(): pause_toggled.emit(),
 		func(): restart_requested.emit(),
 		func(th_id: String): theater_change_requested.emit(th_id),
-		func(muted: bool): audio_toggle_requested.emit(muted)
+		func(muted: bool): audio_toggle_requested.emit(muted),
+		func(th_id: String, md_id: String, fc_id: String): match_start_requested.emit(th_id, md_id, fc_id)
 	)
 
 func _on_minimap_draw() -> void:

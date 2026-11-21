@@ -6,7 +6,7 @@ const Pathfinding = preload("res://scripts/pathfinding.gd")
 const SimCombat = preload("res://scripts/sim_combat.gd")
 const SimLogistics = preload("res://scripts/sim_logistics.gd")
 
-static func spawn_unit(sim, faction: String, kind: String, x: float, y: float) -> Dictionary:
+static func spawn_unit(sim, faction: String, kind: String, x: float, y: float, slot_idx: int = -1) -> Dictionary:
 	var spec = Constants.UNIT_SPECS[kind]
 	var doctrine_id = sim.player_doctrine if faction == "player" else sim.enemy_doctrine
 	var doctrine = Constants.FACTION_DOCTRINES.get(doctrine_id, {})
@@ -18,9 +18,21 @@ static func spawn_unit(sim, faction: String, kind: String, x: float, y: float) -
 	var base_speed = spec["speed"] * speed_mult if doctrine.size() > 0 else spec["speed"]
 	var base_dmg = round(spec["damage"] * damage_mult) if doctrine.size() > 0 else spec["damage"]
 	
+	if slot_idx == -1:
+		slot_idx = sim.active_human_slot if faction == "player" else (1 if sim.slots.size() <= 2 else 2)
+		
+	var team_id = 1 if faction == "player" else 2
+	var col = Color("#22c55e") if faction == "player" else Color("#ef4444")
+	if slot_idx >= 0 and slot_idx < sim.slots.size():
+		team_id = sim.slots[slot_idx]["team_id"]
+		col = sim.slots[slot_idx]["color"]
+
 	var unit = {
 		"id": sim.next_unit_id,
 		"faction": faction,
+		"slot_id": slot_idx,
+		"team_id": team_id,
+		"color": col,
 		"kind": kind,
 		"x": x,
 		"y": y,
@@ -353,7 +365,6 @@ static func select_smart_target(sim, u: Dictionary) -> Variant:
 					return e
 		u["targetEntityId"] = null
 
-	var target_faction = "enemy" if u["faction"] == "player" else "player"
 	var max_scan_range = u["range"]
 	if u["stance"] == "attack_move":
 		max_scan_range += 45.0
@@ -364,7 +375,7 @@ static func select_smart_target(sim, u: Dictionary) -> Variant:
 	var highest_score = -9999.0
 	
 	for e in sim.units:
-		if not e["alive"] or e["faction"] != target_faction:
+		if not e["alive"] or not sim.are_hostile(u, e):
 			continue
 		var dist = Vector2(u["x"], u["y"]).distance_to(Vector2(e["x"], e["y"]))
 		if dist > max_scan_range:

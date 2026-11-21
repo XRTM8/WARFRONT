@@ -171,7 +171,7 @@ static func draw_oil_rig(canvas: CanvasItem, rig: Dictionary) -> void:
 	canvas.draw_rect(Rect2(center.x + 14, center.y - 11, 4, 4), Color("#f59e0b"))
 	# Live crude oil fill sight-glass
 	var max_b = max(1.0, rig.get("maxBarrels", 80.0))
-	var fill_h = int(round((rig["storedBarrels"] / max_b) * 26.0))
+	var fill_h = int(round((rig.get("storedBarrels", 0.0) / max_b) * 26.0))
 	canvas.draw_rect(Rect2(center.x + 11, center.y + 13 - fill_h, 10, fill_h), Color("#e6a838"))
 	canvas.draw_rect(Rect2(center.x + 11, center.y - 13, 2, 26), Color("#fef3c7")) # Glass reflection
 	
@@ -214,9 +214,15 @@ static func draw_oil_rig(canvas: CanvasItem, rig: Dictionary) -> void:
 		canvas.draw_arc(center, 36.0, -PI / 2.0, -PI / 2.0 + ang, 24, Color(1, 1, 1, 0.4), 1.5)
 
 static func draw_hq(canvas: CanvasItem, hq: Dictionary) -> void:
-	var is_player = hq["faction"] == "player"
-	var primary = Color("#589e47") if is_player else Color("#c9453e")
-	var primary_light = Color("#78d464") if is_player else Color("#ef5350")
+	var is_player = hq.get("faction") == "player"
+	var primary: Color
+	if hq.has("color") and hq["color"] is Color:
+		primary = hq["color"]
+	elif hq.has("slot_id") and hq["slot_id"] < Constants.SLOT_DEFAULT_COLORS.size():
+		primary = Constants.SLOT_DEFAULT_COLORS[hq["slot_id"]]
+	else:
+		primary = Color("#589e47") if is_player else Color("#c9453e")
+	var primary_light = primary.lightened(0.25)
 	var center = Vector2(round(hq["x"]), round(hq["y"]))
 	
 	# 1. Ground Drop Shadow

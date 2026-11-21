@@ -46,6 +46,7 @@ func _ready() -> void:
 	hud.commander_power_requested.connect(_on_commander_power_requested)
 	hud.place_structure_requested.connect(_on_place_structure_requested)
 	hud.micro_action_requested.connect(_on_micro_action_requested)
+	hud.match_start_requested.connect(_on_match_start_requested)
 	
 	# Restrict camera within valid map bounds (eliminates any gray void)
 	camera.limit_left = 0
@@ -136,6 +137,14 @@ func _on_theater_change_requested(theater_id: String) -> void:
 	renderer.init_with_simulation(sim)
 	camera.limit_right = int(sim.map.get("width", 3456.0))
 	camera.limit_bottom = int(sim.map.get("height", 1920.0))
+	hud.modal.hide_all()
+	_on_center_hq_requested()
+
+func _on_match_start_requested(theater_id: String, mode_id: String, faction_id: String) -> void:
+	sim.init_match(theater_id, mode_id, faction_id)
+	renderer.init_with_simulation(sim)
+	camera.limit_right = int(sim.map.get("width", 4800.0))
+	camera.limit_bottom = int(sim.map.get("height", 2880.0))
 	hud.modal.hide_all()
 	_on_center_hq_requested()
 

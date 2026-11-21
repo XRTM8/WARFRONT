@@ -8,32 +8,41 @@ var pause_panel: PanelContainer = null
 var debrief_panel: PanelContainer = null
 var theater_panel: PanelContainer = null
 var help_panel: PanelContainer = null
+var match_setup_panel: PanelContainer = null
 
 var is_paused: bool = false
 var audio_muted: bool = false
+
+var selected_theater: String = "basra"
+var selected_mode: String = "2v2"
+var selected_faction: String = "vanguard"
 
 var on_resume: Callable
 var on_restart: Callable
 var on_theater_selected: Callable
 var on_toggle_audio: Callable
+var on_match_start: Callable
 
 func setup(
 	canvas: CanvasLayer,
 	resume_cb: Callable,
 	restart_cb: Callable,
 	theater_cb: Callable,
-	audio_cb: Callable
+	audio_cb: Callable,
+	match_cb: Callable = Callable()
 ) -> void:
 	parent_canvas = canvas
 	on_resume = resume_cb
 	on_restart = restart_cb
 	on_theater_selected = theater_cb
 	on_toggle_audio = audio_cb
+	on_match_start = match_cb
 	
 	_build_pause_modal()
 	_build_debrief_modal()
 	_build_theater_modal()
 	_build_help_modal()
+	_build_match_setup_modal()
 
 func toggle_pause() -> void:
 	is_paused = not is_paused
@@ -41,6 +50,8 @@ func toggle_pause() -> void:
 	if not is_paused:
 		theater_panel.visible = false
 		help_panel.visible = false
+		if match_setup_panel != null:
+			match_setup_panel.visible = false
 
 func show_debrief(sim) -> void:
 	if debrief_panel == null or sim == null:
@@ -59,6 +70,8 @@ func hide_all() -> void:
 		theater_panel.visible = false
 	if help_panel != null:
 		help_panel.visible = false
+	if match_setup_panel != null:
+		match_setup_panel.visible = false
 
 # ------------------------------------------------------------------------------
 # 1. Tactical Pause Modal
@@ -81,7 +94,7 @@ func _build_pause_modal() -> void:
 	
 	# Header
 	var title = Label.new()
-	title.text = "⏸️ غرفة العمليات التكتيكية"
+	title.text = "[ OPERATIONS COMMAND // غرفة العمليات التكتيكية ]"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color("#ffd659"))
 	title.add_theme_font_size_override("font_size", 14)
@@ -98,13 +111,21 @@ func _build_pause_modal() -> void:
 	vbox.add_child(sep)
 	
 	# Buttons
-	var resume_btn = _create_menu_button("▶ استئناف المعركة", Color("#73d65e"))
+	var resume_btn = _create_menu_button("[ RESUME // استئناف المعركة ]", Color("#73d65e"))
 	resume_btn.pressed.connect(func():
 		toggle_pause()
 		if on_resume.is_valid():
 			on_resume.call()
 	)
 	vbox.add_child(resume_btn)
+
+	var match_setup_btn = _create_menu_button("[ MATCH SETUP // إعداد معركة مخصصة وتحديد الفرق ]", Color("#38bdf8"))
+	match_setup_btn.pressed.connect(func():
+		pause_panel.visible = false
+		if match_setup_panel != null:
+			match_setup_panel.visible = true
+	)
+	vbox.add_child(match_setup_btn)
 	
 	var restart_btn = _create_menu_button("[ RESTART // إعادة تشغيل العملية ]", Color("#fde047"))
 	restart_btn.pressed.connect(func():
@@ -386,6 +407,174 @@ func _build_help_modal() -> void:
 		pause_panel.visible = true
 	)
 	vbox.add_child(back_btn)
+
+# ------------------------------------------------------------------------------
+# 5. Tactical Match Setup Lobby Modal
+# ------------------------------------------------------------------------------
+
+func _build_match_setup_modal() -> void:
+	match_setup_panel = PanelContainer.new()
+	match_setup_panel.set_anchors_preset(Control.PRESET_CENTER)
+	match_setup_panel.custom_minimum_size = Vector2(500, 420)
+	match_setup_panel.position = Vector2(-250, -210)
+	
+	var style = _create_military_panel_style()
+	match_setup_panel.add_theme_stylebox_override("panel", style)
+	match_setup_panel.visible = false
+	parent_canvas.add_child(match_setup_panel)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	match_setup_panel.add_child(vbox)
+	
+	var title = Label.new()
+	title.text = "[ MATCH SETUP // إعداد غرفة العمليات وتحديد الفرق ]"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", Color("#38bdf8"))
+	title.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(title)
+	
+	vbox.add_child(HSeparator.new())
+	
+	# Summary readout
+	var summary_lbl = Label.new()
+	summary_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	summary_lbl.add_theme_color_override("font_color", Color("#facc15"))
+	summary_lbl.add_theme_font_size_override("font_size", 10)
+	vbox.add_child(summary_lbl)
+	
+	var update_summary = func():
+		var m_name = Constants.MATCH_PRESETS.get(selected_mode, {}).get("name", selected_mode)
+		var th_name = Constants.THEATER_CONFIGS.get(selected_theater, {}).get("name", selected_theater)
+		var f_name = "Coalition Vanguard" if selected_faction == "vanguard" else "Desert Raiders"
+		summary_lbl.text = "[ CONFIG // %s | %s | %s ]" % [m_name, th_name, f_name]
+	update_summary.call()
+
+	# Section 1: Mode Selection
+	var mode_hdr = Label.new()
+	mode_hdr.text = "[ 1. ALLIANCE MODE // نظام التحالف والاشتباك ]"
+	mode_hdr.add_theme_color_override("font_color", Color("#94a3b8"))
+	mode_hdr.add_theme_font_size_override("font_size", 9)
+	vbox.add_child(mode_hdr)
+	
+	var mode_hbox = HBoxContainer.new()
+	mode_hbox.add_theme_constant_override("separation", 6)
+	vbox.add_child(mode_hbox)
+	
+	var modes = [
+		{ "id": "2v2", "label": "2v2 Team Alliance" },
+		{ "id": "ffa", "label": "4-Way FFA" },
+		{ "id": "1v1", "label": "1v1 Classic" },
+		{ "id": "1v3", "label": "1v3 Survival" }
+	]
+	
+	var mode_buttons: Array[Button] = []
+	for m in modes:
+		var btn = Button.new()
+		btn.text = m["label"]
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", 9)
+		var m_id = m["id"]
+		btn.pressed.connect(func():
+			selected_mode = m_id
+			if m_id in ["2v2", "ffa", "1v3"] and selected_theater == "kirkuk":
+				selected_theater = "basra"
+			for b in mode_buttons:
+				b.add_theme_color_override("font_color", Color("#a1a1aa"))
+			btn.add_theme_color_override("font_color", Color("#38bdf8"))
+			update_summary.call()
+		)
+		mode_buttons.push_back(btn)
+		mode_hbox.add_child(btn)
+	mode_buttons[0].add_theme_color_override("font_color", Color("#38bdf8"))
+
+	# Section 2: Theater / Map Size Selection
+	var th_hdr = Label.new()
+	th_hdr.text = "[ 2. THEATER MAP // مسرح العمليات وحجم الخريطة ]"
+	th_hdr.add_theme_color_override("font_color", Color("#94a3b8"))
+	th_hdr.add_theme_font_size_override("font_size", 9)
+	vbox.add_child(th_hdr)
+	
+	var th_hbox = HBoxContainer.new()
+	th_hbox.add_theme_constant_override("separation", 6)
+	vbox.add_child(th_hbox)
+	
+	var theaters = [
+		{ "id": "basra", "label": "Basra Delta (4800x2880)" },
+		{ "id": "zagros", "label": "Zagros Pass (4800x2880)" },
+		{ "id": "kirkuk", "label": "Kirkuk (3456x1920)" }
+	]
+	
+	var th_buttons: Array[Button] = []
+	for t in theaters:
+		var btn = Button.new()
+		btn.text = t["label"]
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", 9)
+		var t_id = t["id"]
+		btn.pressed.connect(func():
+			selected_theater = t_id
+			for b in th_buttons:
+				b.add_theme_color_override("font_color", Color("#a1a1aa"))
+			btn.add_theme_color_override("font_color", Color("#22c55e"))
+			update_summary.call()
+		)
+		th_buttons.push_back(btn)
+		th_hbox.add_child(btn)
+	th_buttons[0].add_theme_color_override("font_color", Color("#22c55e"))
+
+	# Section 3: Faction Doctrine
+	var fac_hdr = Label.new()
+	fac_hdr.text = "[ 3. OPERATING FACTION // عقيدة القوات الميدانية ]"
+	fac_hdr.add_theme_color_override("font_color", Color("#94a3b8"))
+	fac_hdr.add_theme_font_size_override("font_size", 9)
+	vbox.add_child(fac_hdr)
+	
+	var fac_hbox = HBoxContainer.new()
+	fac_hbox.add_theme_constant_override("separation", 6)
+	vbox.add_child(fac_hbox)
+	
+	var factions = [
+		{ "id": "vanguard", "label": "Coalition Vanguard (Heavy Armor / Air)" },
+		{ "id": "raiders", "label": "Desert Raiders (Speed Flanking / High RoF)" }
+	]
+	
+	var fac_buttons: Array[Button] = []
+	for f in factions:
+		var btn = Button.new()
+		btn.text = f["label"]
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_font_size_override("font_size", 9)
+		var f_id = f["id"]
+		btn.pressed.connect(func():
+			selected_faction = f_id
+			for b in fac_buttons:
+				b.add_theme_color_override("font_color", Color("#a1a1aa"))
+			btn.add_theme_color_override("font_color", Color("#f97316"))
+			update_summary.call()
+		)
+		fac_buttons.push_back(btn)
+		fac_hbox.add_child(btn)
+	fac_buttons[0].add_theme_color_override("font_color", Color("#f97316"))
+
+	vbox.add_child(HSeparator.new())
+	
+	# Action buttons
+	var deploy_btn = _create_menu_button("[ DEPLOY OPERATION // بدء نشر القوات والاشتباك ]", Color("#4ade80"))
+	deploy_btn.custom_minimum_size = Vector2(0, 38)
+	deploy_btn.pressed.connect(func():
+		hide_all()
+		if on_match_start.is_valid():
+			on_match_start.call(selected_theater, selected_mode, selected_faction)
+	)
+	vbox.add_child(deploy_btn)
+	
+	var back_to_pause_btn = _create_menu_button("[ BACK // رجوع إلى القائمة الرئيسية ]", Color("#a1a1aa"))
+	back_to_pause_btn.pressed.connect(func():
+		match_setup_panel.visible = false
+		pause_panel.visible = true
+	)
+	vbox.add_child(back_to_pause_btn)
 
 # ------------------------------------------------------------------------------
 # Helpers

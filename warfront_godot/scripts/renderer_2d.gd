@@ -253,6 +253,19 @@ func _draw() -> void:
 		
 	var map = sim.map
 	var pal = Constants.THEATER_PALETTES.get(map["theater"], Constants.THEATER_PALETTES["kirkuk"])
+
+	# Compute Viewport Frustum Culling Box with generous margin
+	var vp = get_viewport()
+	var cam = vp.get_camera_2d() if vp != null else null
+	var view_rect: Rect2
+	if cam != null:
+		var cam_pos = cam.get_screen_center_position()
+		var zoom_val = cam.zoom if (cam.zoom.x > 0.001 and cam.zoom.y > 0.001) else Vector2.ONE
+		var visible_size = vp.get_visible_rect().size / zoom_val
+		var margin = Vector2(160.0, 160.0)
+		view_rect = Rect2(cam_pos - (visible_size * 0.5) - margin, visible_size + (margin * 2.0))
+	else:
+		view_rect = Rect2(0.0, 0.0, map.get("width", 5000.0), map.get("height", 3000.0))
 	
 	# 1. Render Terrain
 	if terrain_texture != null:
@@ -272,23 +285,35 @@ func _draw() -> void:
 	
 	# 3. Burning wellheads
 	for well in map["burningWells"]:
-		RenderStructures.draw_burning_well(self, well, sim.sim_time)
+		if view_rect.has_point(well):
+			RenderStructures.draw_burning_well(self, well, sim.sim_time)
 		
 	# 4. Bridges
 	for b in map["bridges"]:
-		RenderStructures.draw_bridge(self, default_font, b, pal)
+		if view_rect.has_point(Vector2(b["x"], b["y"])):
+			RenderStructures.draw_bridge(self, default_font, b, pal)
 		
 	# 5. Oil rigs
 	for rig in map["rigs"]:
-		RenderStructures.draw_oil_rig(self, rig)
+		if view_rect.has_point(Vector2(rig["x"], rig["y"])):
+			RenderStructures.draw_oil_rig(self, rig)
 		
-	# 6. Command HQs
-	RenderStructures.draw_hq(self, map["playerHQ"])
-	RenderStructures.draw_hq(self, map["enemyHQ"])
+	# 6. Command HQs (Supports multi-HQ arrays on large maps)
+	var hqs_list = map.get("hqs", [])
+	if hqs_list.size() > 0:
+		for hq in hqs_list:
+			if view_rect.has_point(Vector2(hq["x"], hq["y"])):
+				RenderStructures.draw_hq(self, hq)
+	else:
+		if view_rect.has_point(Vector2(map["playerHQ"]["x"], map["playerHQ"]["y"])):
+			RenderStructures.draw_hq(self, map["playerHQ"])
+		if view_rect.has_point(Vector2(map["enemyHQ"]["x"], map["enemyHQ"]["y"])):
+			RenderStructures.draw_hq(self, map["enemyHQ"])
 
 	# 6.2 Base Structures (War Factories, Repair Depots, Refineries, Turrets, Walls)
 	for s in sim.structures:
-		RenderStructures.draw_structure(self, default_font, s, pal, sim.sim_time)
+		if view_rect.has_point(Vector2(s["x"], s["y"])):
+			RenderStructures.draw_structure(self, default_font, s, pal, sim.sim_time)
 	
 	# 6.3 Player Tactical Rally Point Beacon
 	if sim.player_rally_point != Vector2.ZERO:
@@ -317,14 +342,16 @@ func _draw() -> void:
 	# 7.5 Tactical Waypoint Vectors (Selected Unit Trajectory Lines)
 	RenderFX.draw_tactical_waypoints(self, sim.units, sim.sim_time)
 
-	# 8. Units
+	# 8. Units (Frustum Culled for 60 FPS performance on large maps)
 	for u in sim.units:
 		if u["alive"]:
-			RenderUnits.draw_unit(self, default_font, u, sim.sim_time)
+			if view_rect.has_point(Vector2(u["x"], u["y"])):
+				RenderUnits.draw_unit(self, default_font, u, sim.sim_time)
 			
 	# 9. Projectiles
 	for pr in sim.projectiles:
-		RenderFX.draw_projectile(self, pr)
+		if view_rect.has_point(Vector2(pr["x"], pr["y"])):
+			RenderFX.draw_projectile(self, pr)
 		
 	# 10. Particles (Smoke column, fire, shockwaves, sparks, debris)
 	RenderFX.draw_particles(self, sim.particles)

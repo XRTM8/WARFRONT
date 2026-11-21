@@ -60,6 +60,9 @@ var player_rally_point: Vector2 = Vector2.ZERO
 var player_doctrine: String = ""
 var enemy_doctrine: String = ""
 var reverse_move_mode: bool = false
+var match_mode: String = "1v1"
+var slots: Array[Dictionary] = []
+var active_human_slot: int = 0
 
 var next_unit_id: int = 1
 var next_projectile_id: int = 1
@@ -148,7 +151,86 @@ func reset(th: String = theater, sd: int = seed_val, start_phase: String = "play
 	SimCommander.init_commander_state(self)
 	
 	map = MapGen.generate_map(theater, seed_val)
+	init_slots(match_mode, active_human_slot, player_doctrine if player_doctrine != "" else "vanguard")
 	SimUnits.setup_initial_forces(self)
+
+func init_match(th: String, preset_mode: String = "1v1", player_fac: String = "vanguard") -> void:
+	theater = th
+	match_mode = preset_mode
+	player_doctrine = player_fac
+	reset(th, seed_val)
+
+func init_slots(preset: String = "1v1", human_slot: int = 0, human_fac: String = "vanguard") -> void:
+	match_mode = preset
+	active_human_slot = human_slot
+	slots.clear()
+	
+	var preset_cfg = Constants.MATCH_PRESETS.get(preset, Constants.MATCH_PRESETS["1v1"])
+	var slot_count: int = preset_cfg["slots_count"]
+	var teams: Array = preset_cfg["default_teams"]
+	
+	for i in range(slot_count):
+		var is_human = (i == human_slot)
+		var fac = human_fac if is_human else ("raiders" if human_fac == "vanguard" else "vanguard")
+		var team_id = teams[i] if i < teams.size() else (i + 1)
+		var col = Constants.SLOT_DEFAULT_COLORS[i % Constants.SLOT_DEFAULT_COLORS.size()]
+		
+		slots.push_back({
+			"slot_id": i,
+			"team_id": team_id,
+			"is_human": is_human,
+			"faction": fac,
+			"color": col,
+			"hq_id": "hq_%d" % i if slot_count > 2 else ("hq_player" if i == 0 else "hq_enemy"),
+			"oil": Constants.STARTING_PLAYER_OIL if is_human else Constants.STARTING_ENEMY_OIL,
+			"oil_delivered": 0,
+			"alive": true
+		})
+
+func get_slot_hq(slot_id: int) -> Dictionary:
+	var hqs = map.get("hqs", [])
+	if slot_id >= 0 and slot_id < hqs.size():
+		return hqs[slot_id]
+	return map["playerHQ"] if slot_id == 0 else map["enemyHQ"]
+
+func are_hostile(entity_a: Variant, entity_b: Variant) -> bool:
+	if entity_a == null or entity_b == null:
+		return false
+	var team_a = get_entity_team(entity_a)
+	var team_b = get_entity_team(entity_b)
+	if team_a == 0 or team_b == 0:
+		return false
+	return team_a != team_b
+
+func get_entity_team(entity: Variant) -> int:
+	if entity is String:
+		if entity == "player":
+			return slots[active_human_slot]["team_id"] if slots.size() > active_human_slot else 1
+		elif entity == "enemy":
+			return 2
+		return 0
+	if entity is Dictionary:
+		if entity.has("team_id"):
+			return entity["team_id"]
+		if entity.has("slot_id"):
+			var sid = entity["slot_id"]
+			if sid >= 0 and sid < slots.size():
+				return slots[sid]["team_id"]
+		var fac = entity.get("faction", "")
+		if fac == "player":
+			return slots[active_human_slot]["team_id"] if slots.size() > active_human_slot else 1
+		elif fac == "enemy":
+			return 2
+	return 0
+
+func get_unit_color(u: Dictionary) -> Color:
+	if u.has("color"):
+		return u["color"]
+	var sid = u.get("slot_id", -1)
+	if sid >= 0 and sid < slots.size():
+		return slots[sid]["color"]
+	var fac = u.get("faction", "player")
+	return Color("#22c55e") if fac == "player" else Color("#ef4444")
 
 func step(dt: float) -> void:
 	dt = min(dt, 0.05)
@@ -313,8 +395,8 @@ func spawn_salvage(x: float, y: float, oil_amount: int) -> void:
 func notify_directive(directive_type: String) -> void:
 	SimCommander.notify_directive_progress(self, directive_type)
 
-func spawn_unit(faction: String, kind: String, x: float, y: float) -> Dictionary:
-	return SimUnits.spawn_unit(self, faction, kind, x, y)
+func spawn_unit(faction: String, kind: String, x: float, y: float, slot_idx: int = -1) -> Dictionary:
+	return SimUnits.spawn_unit(self, faction, kind, x, y, slot_idx)
 
 func train_player_unit(kind: String) -> bool:
 	return SimUnits.train_player_unit(self, kind)

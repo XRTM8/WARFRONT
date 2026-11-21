@@ -137,20 +137,21 @@ static func detonate_projectile(sim, p: Dictionary) -> void:
 			break
 			
 	# Damage hostile units
-	var target_faction = "enemy" if p["faction"] == "player" else "player"
 	for u in sim.units:
-		if u["alive"] and u["faction"] == target_faction:
+		if u["alive"] and sim.are_hostile(p, u):
 			var d = Vector2(u["x"], u["y"]).distance_to(Vector2(p["x"], p["y"]))
 			if d <= radius + u["radius"]:
 				damage_unit(sim, u, p["damage"], attacker_unit)
 				
-	# Damage hostile HQ
-	var hq = sim.map["enemyHQ"] if p["faction"] == "player" else sim.map["playerHQ"]
-	if Vector2(p["x"], p["y"]).distance_to(Vector2(hq["x"], hq["y"])) < radius + 40.0:
-		var dealt = min(hq["hp"], p["damage"])
-		hq["hp"] = max(0.0, hq["hp"] - p["damage"])
-		hq["hitFlash"] = 0.08
-		sim.spawn_floating_text(hq["x"], hq["y"] - 32.0, "-%d" % int(round(dealt)), Color("#ef4444"), 0.8)
+	# Damage hostile HQs
+	var all_hqs = sim.map.get("hqs", [sim.map["enemyHQ"], sim.map["playerHQ"]])
+	for hq in all_hqs:
+		if sim.are_hostile(p, hq):
+			if Vector2(p["x"], p["y"]).distance_to(Vector2(hq["x"], hq["y"])) < radius + 40.0:
+				var dealt = min(hq["hp"], p["damage"])
+				hq["hp"] = max(0.0, hq["hp"] - p["damage"])
+				hq["hitFlash"] = 0.08
+				sim.spawn_floating_text(hq["x"], hq["y"] - 32.0, "-%d" % int(round(dealt)), Color("#ef4444"), 0.8)
 		
 	# Damage bridge if hit
 	var bridge = Pathfinding.get_bridge_at_world(sim.map, p["x"], p["y"], radius * 0.65)
@@ -322,10 +323,9 @@ static func update_flying_turrets(sim, dt: float) -> void:
 			sim.spawn_particle("ring", ix, iy, 0.0, 0.0, 6.0, 36.0, 0.25, Color("#f59e0b"))
 			sim.spawn_floating_text(ix, iy - 10.0, "[ TURRET IMPACT // ارتطام البرج ]", Color("#fbbf24"), 0.9)
 			
-			# Radial blast damage to nearby enemy units
-			var opp_faction = "enemy" if ft.get("faction") == "player" else "player"
+			# Radial blast damage to nearby hostile units
 			for u in sim.units:
-				if u["alive"] and u["faction"] == opp_faction:
+				if u["alive"] and sim.are_hostile(ft, u):
 					if Vector2(u["x"], u["y"]).distance_to(Vector2(ix, iy)) <= 32.0 + u["radius"]:
 						damage_unit(sim, u, 45.0)
 						
@@ -343,9 +343,8 @@ static func update_napalm_patches(sim, dt: float) -> void:
 			sim.spawn_particle("fire", np["x"] + cos(ang) * dist, np["y"] + sin(ang) * dist, 0.0, -18.0, 4.0, 1.0, 0.35, Color("#ea580c"))
 			
 		# Damage opposing units
-		var opp_faction = "enemy" if np["faction"] == "player" else "player"
 		for u in sim.units:
-			if u["alive"] and u["faction"] == opp_faction:
+			if u["alive"] and sim.are_hostile(np, u):
 				if Vector2(u["x"], u["y"]).distance_to(Vector2(np["x"], np["y"])) <= np["radius"] + u["radius"]:
 					damage_unit(sim, u, 35.0 * dt)
 					if randf() < 0.15:
@@ -363,11 +362,10 @@ static func update_landmines(sim, dt: float) -> void:
 			continue
 			
 		var lm_pos = Vector2(lm["x"], lm["y"])
-		var opp_faction = "enemy" if lm["faction"] == "player" else "player"
 		var triggered = false
 		
 		for u in sim.units:
-			if u["alive"] and u["faction"] == opp_faction and u["kind"] != "helicopter":
+			if u["alive"] and sim.are_hostile(lm, u) and u["kind"] != "helicopter":
 				if Vector2(u["x"], u["y"]).distance_to(lm_pos) <= 20.0 + u["radius"]:
 					triggered = true
 					# Massive AT detonation

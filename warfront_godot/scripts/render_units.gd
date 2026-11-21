@@ -5,10 +5,19 @@ const Constants = preload("res://scripts/constants.gd")
 
 static func draw_unit(canvas: CanvasItem, default_font: Font, u: Dictionary, sim_time: float) -> void:
 	var pos = Vector2(round(u["x"]), round(u["y"]))
-	var is_player = u["faction"] == "player"
-	var body_main = Color("#5d8a47") if is_player else Color("#b8423b")
-	var body_dark = Color("#375429") if is_player else Color("#732622")
-	var body_light = Color("#8ac26b") if is_player else Color("#e3726b")
+	var is_player = u.get("faction") == "player"
+	var custom_col = u.get("color")
+	var body_main: Color
+	var body_dark: Color
+	var body_light: Color
+	if custom_col != null and custom_col is Color:
+		body_main = custom_col
+		body_dark = custom_col.darkened(0.35)
+		body_light = custom_col.lightened(0.35)
+	else:
+		body_main = Color("#5d8a47") if is_player else Color("#b8423b")
+		body_dark = Color("#375429") if is_player else Color("#732622")
+		body_light = Color("#8ac26b") if is_player else Color("#e3726b")
 	var flash = u["hitFlash"] > 0.0
 
 	# 1. Selection 4-corner tactical brackets & breathing pulse
