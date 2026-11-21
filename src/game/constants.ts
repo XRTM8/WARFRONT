@@ -88,6 +88,28 @@ export const UNIT_SPECS: Record<UnitKind, UnitSpec> = {
 
 export const BUILDABLE_UNITS: UnitKind[] = ['scout', 'tank', 'artillery', 'engineer', 'turret'];
 
+export interface VeterancyRankSpec {
+  rank: 0 | 1 | 2 | 3;
+  xpRequired: number;
+  damageMultiplier: number;
+  hpMultiplier: number;
+  healPerSec: number;
+  badgeLabel: string;
+}
+
+export const VETERANCY_RANKS: readonly VeterancyRankSpec[] = [
+  { rank: 0, xpRequired: 0, damageMultiplier: 1.0, hpMultiplier: 1.0, healPerSec: 0, badgeLabel: '' },
+  { rank: 1, xpRequired: 100, damageMultiplier: 1.18, hpMultiplier: 1.15, healPerSec: 0, badgeLabel: 'VET' },
+  { rank: 2, xpRequired: 240, damageMultiplier: 1.38, hpMultiplier: 1.32, healPerSec: 1.5, badgeLabel: 'ELITE' },
+  { rank: 3, xpRequired: 450, damageMultiplier: 1.6, hpMultiplier: 1.55, healPerSec: 3.5, badgeLabel: 'ACE' },
+] as const;
+
+export const XP_PER_DAMAGE = 0.28;
+export const XP_KILL_LIGHT = 65;
+export const XP_KILL_HEAVY = 115;
+export const XP_BRIDGE_DEMOLISH = 135;
+export const XP_RIG_CAPTURE = 60;
+
 export interface TheaterPalette {
   groundA: string;
   groundB: string;

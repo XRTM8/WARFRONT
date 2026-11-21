@@ -118,6 +118,26 @@ export const GameHud: React.FC<GameHudProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Promoted Veterans Counter */}
+          {hud.playerVeterans > 0 && (
+            <div className="flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none" aria-hidden="true">
+                <path
+                  d="M12 3L14.7 8.5L20.8 9.4L16.4 13.7L17.4 19.8L12 16.9L6.6 19.8L7.6 13.7L3.2 9.4L9.3 8.5L12 3Z"
+                  fill="#f5c94c"
+                  stroke="#141710"
+                  strokeWidth="1.5"
+                />
+              </svg>
+              <div className="leading-tight">
+                <div className="text-[10px] font-semibold text-[#9e9681]">{t.veterans}</div>
+                <div data-testid="hud-veterans" className="font-mono-num text-sm font-bold text-[#ffd659]">
+                  {hud.playerVeterans}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Top-Center: Compact HQ Integrity Bars + Radio Alert */}

@@ -10,6 +10,7 @@ export interface Translations {
   rigs: string;
   trucks: string;
   bridges: string;
+  veterans: string;
   hq: string;
   enemyHq: string;
   stranded: string;
@@ -54,6 +55,7 @@ const AR: Translations = {
   rigs: 'الآبار',
   trucks: 'الشاحنات',
   bridges: 'الجسور',
+  veterans: 'المخضرمون',
   hq: 'القيادة',
   enemyHq: 'قيادة العدو',
   stranded: 'عالق',
@@ -106,6 +108,7 @@ const AR: Translations = {
     enemy_starving: 'شاحنات العدو محاصرة بلا جسر عبور!',
     hq_under_attack: 'تحذير: المقر القيادي يتعرض للقصف!',
     not_enough_oil: 'لا يوجد نفط كافٍ — احمِ شاحناتك!',
+    unit_promoted: 'ترقية ميدانية! ارتقت وحدة مقاتلة إلى رتبة أعلى.',
   },
 };
 
@@ -119,6 +122,7 @@ const EN: Translations = {
   rigs: 'RIGS',
   trucks: 'TRUCKS',
   bridges: 'BRIDGES',
+  veterans: 'VETERANS',
   hq: 'HQ',
   enemyHq: 'ENEMY HQ',
   stranded: 'CUT OFF',
@@ -171,6 +175,7 @@ const EN: Translations = {
     enemy_starving: 'Enemy supply trucks stranded behind blown bridge!',
     hq_under_attack: 'Alert: Command HQ under fire!',
     not_enough_oil: 'Insufficient oil — protect your supply trucks!',
+    unit_promoted: 'Field promotion! Combat unit gained a veterancy rank.',
   },
 };
 

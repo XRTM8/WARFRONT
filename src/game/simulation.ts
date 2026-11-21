@@ -5,6 +5,12 @@ import {
   STARTING_PLAYER_OIL,
   TRUCK_CARGO_CAPACITY,
   UNIT_SPECS,
+  VETERANCY_RANKS,
+  XP_BRIDGE_DEMOLISH,
+  XP_KILL_HEAVY,
+  XP_KILL_LIGHT,
+  XP_PER_DAMAGE,
+  XP_RIG_CAPTURE,
 } from './constants';
 import { generateMap } from './mapGen';
 import {
@@ -39,6 +45,7 @@ export interface SimulationAudioCallbacks {
   onOilDeposit?: () => void;
   onCapture?: (friendly: boolean) => void;
   onUnitReady?: () => void;
+  onPromotion?: () => void;
   onVictory?: () => void;
   onDefeat?: () => void;
 }
@@ -240,9 +247,62 @@ export class WarFrontSimulation {
       alive: true,
       windupTimer: 0,
       windupTarget: null,
+      xp: 0,
+      rank: 0,
+      kills: 0,
+      promoFlash: 0,
     };
     this.units.push(unit);
     return unit;
+  }
+
+  public awardUnitXp(unit: Unit, amount: number): boolean {
+    if (!unit.alive || unit.kind === 'truck' || amount <= 0) return false;
+    unit.xp += amount;
+
+    let targetRank: 0 | 1 | 2 | 3 = unit.rank;
+    for (let i = VETERANCY_RANKS.length - 1; i >= 1; i--) {
+      if (unit.xp >= VETERANCY_RANKS[i].xpRequired) {
+        targetRank = VETERANCY_RANKS[i].rank;
+        break;
+      }
+    }
+
+    if (targetRank <= unit.rank) return false;
+
+    const spec = UNIT_SPECS[unit.kind];
+    const nextRankSpec = VETERANCY_RANKS[targetRank];
+    const prevMaxHp = unit.maxHp;
+    const nextMaxHp = Math.round(spec.hp * nextRankSpec.hpMultiplier);
+    const nextDamage = Math.round(spec.damage * nextRankSpec.damageMultiplier);
+
+    unit.rank = targetRank;
+    unit.maxHp = nextMaxHp;
+    unit.damage = nextDamage;
+    // Grant the increased max HP plus a small field-repair boost on promotion
+    const healBonus = (nextMaxHp - prevMaxHp) + Math.round(spec.hp * 0.18);
+    unit.hp = Math.min(unit.maxHp, unit.hp + healBonus);
+    unit.promoFlash = 0.7;
+
+    const stars = '★'.repeat(targetRank);
+    this.floatingPopups.push({
+      x: unit.x,
+      y: unit.y - unit.radius - 16,
+      text: `${stars} ${nextRankSpec.badgeLabel}`,
+      color: '#ffd659',
+      life: 1.5,
+      maxLife: 1.5,
+    });
+    this.spawnParticle('ring', unit.x, unit.y, 0, 0, unit.radius, unit.radius + 26, 0.42, '#ffd659');
+    this.spawnBurst(unit.x, unit.y, 'spark', 10, '#ffe37d', 75);
+
+    if (unit.faction === 'player') {
+      this.audio.onPromotion?.();
+      if (this.phase === 'playing') {
+        this.pushEvent('unit_promoted', 'good');
+      }
+    }
+    return true;
   }
 
   public spawnTruckForRig(faction: 'player' | 'enemy', rig: OilRig): Unit | null {
@@ -619,6 +679,13 @@ export class WarFrontSimulation {
         if (rig.captureProgress >= 100 && rig.owner !== 'player') {
           rig.owner = 'player';
           rig.captureFaction = 'player';
+          for (const u of this.units) {
+            if (u.alive && u.faction === 'player' && u.kind !== 'truck' && u.kind !== 'turret') {
+              if (Math.hypot(u.x - rig.x, u.y - rig.y) <= 88) {
+                this.awardUnitXp(u, XP_RIG_CAPTURE);
+              }
+            }
+          }
           this.audio.onCapture?.(true);
           if (this.phase === 'playing') this.pushEvent('rig_captured', 'good');
           this.ensureTruckForRig('player', rig);
@@ -629,6 +696,13 @@ export class WarFrontSimulation {
           const wasPlayer = rig.owner === 'player';
           rig.owner = 'enemy';
           rig.captureFaction = 'enemy';
+          for (const u of this.units) {
+            if (u.alive && u.faction === 'enemy' && u.kind !== 'truck' && u.kind !== 'turret') {
+              if (Math.hypot(u.x - rig.x, u.y - rig.y) <= 88) {
+                this.awardUnitXp(u, XP_RIG_CAPTURE);
+              }
+            }
+          }
           if (wasPlayer) {
             this.audio.onCapture?.(false);
             if (this.phase === 'playing') this.pushEvent('rig_lost', 'warn');
@@ -699,10 +773,17 @@ export class WarFrontSimulation {
     for (const u of this.units) {
       u.hitFlash = Math.max(0, u.hitFlash - dt);
       u.recoil = Math.max(0, u.recoil - dt * 7);
+      u.promoFlash = Math.max(0, u.promoFlash - dt);
 
       if (!u.alive) {
         u.koTimer = Math.max(0, u.koTimer - dt);
         continue;
+      }
+
+      // Elite & Ace veterans perform slow passive field repair
+      const rankHeal = VETERANCY_RANKS[u.rank]?.healPerSec ?? 0;
+      if (rankHeal > 0 && u.hp < u.maxHp) {
+        u.hp = Math.min(u.maxHp, u.hp + rankHeal * dt);
       }
 
       if (u.kind === 'truck') {
@@ -1106,6 +1187,7 @@ export class WarFrontSimulation {
 
     this.projectiles.push({
       id: this.nextProjectileId++,
+      sourceUnitId: u.id,
       faction: u.faction,
       kind,
       x: muzzleX,
@@ -1116,7 +1198,7 @@ export class WarFrontSimulation {
       targetY,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      damage: spec.damage,
+      damage: u.damage,
       splashRadius: kind === 'rocket' ? 62 : kind === 'shell' ? 28 : 0,
       bridgeMultiplier: spec.bridgeBonus,
       travelTime,
@@ -1163,6 +1245,7 @@ export class WarFrontSimulation {
   private detonateProjectile(p: Projectile) {
     p.alive = false;
     const radius = Math.max(24, p.splashRadius);
+    const attackerUnit = this.units.find((u) => u.id === p.sourceUnitId && u.alive) ?? null;
 
     // 1. Damage hostile units in blast radius
     for (const u of this.units) {
@@ -1170,15 +1253,19 @@ export class WarFrontSimulation {
       const d = Math.hypot(u.x - p.x, u.y - p.y);
       if (d <= radius + u.radius) {
         const falloff = p.splashRadius > 0 ? Math.max(0.45, 1 - d / (radius + u.radius + 10)) : 1;
-        this.damageUnit(u, p.damage * falloff);
+        this.damageUnit(u, p.damage * falloff, attackerUnit);
       }
     }
 
     // 2. Damage opposing HQ
     const oppHq = p.faction === 'player' ? this.map.enemyHQ : this.map.playerHQ;
     if (Math.hypot(oppHq.x - p.x, oppHq.y - p.y) <= radius + 40) {
+      const dealt = Math.min(oppHq.hp, p.damage);
       oppHq.hp = Math.max(0, oppHq.hp - p.damage);
       oppHq.hitFlash = 0.08;
+      if (attackerUnit && dealt > 0) {
+        this.awardUnitXp(attackerUnit, dealt * XP_PER_DAMAGE);
+      }
       if (oppHq.faction === 'player' && this.hqAlertCooldown <= 0 && this.phase === 'playing') {
         this.pushEvent('hq_under_attack', 'warn');
         this.hqAlertCooldown = 10;
@@ -1188,7 +1275,7 @@ export class WarFrontSimulation {
     // 3. Damage intact bridges if shell/rocket lands on bridge span
     const hitBridge = getBridgeAtWorld(this.map, p.x, p.y, radius * 0.65);
     if (hitBridge && hitBridge.status === 'intact') {
-      this.damageBridge(hitBridge, p.damage * p.bridgeMultiplier, p.faction);
+      this.damageBridge(hitBridge, p.damage * p.bridgeMultiplier, p.faction, attackerUnit);
     }
 
     // Visual impact burst
@@ -1208,10 +1295,16 @@ export class WarFrontSimulation {
     }
   }
 
-  public damageUnit(u: Unit, amount: number) {
+  public damageUnit(u: Unit, amount: number, attacker: Unit | null = null) {
     if (!u.alive) return;
+    const applied = Math.min(u.hp, Math.max(0, amount));
     u.hp -= amount;
     u.hitFlash = 0.065;
+
+    if (attacker && attacker.alive && applied > 0) {
+      this.awardUnitXp(attacker, applied * XP_PER_DAMAGE);
+    }
+
     if (u.hp <= 0) {
       u.hp = 0;
       u.alive = false;
@@ -1220,6 +1313,12 @@ export class WarFrontSimulation {
 
       const isOilTruck = u.kind === 'truck';
       const isHeavy = u.kind === 'tank' || u.kind === 'artillery' || isOilTruck;
+
+      if (attacker && attacker.alive) {
+        attacker.kills++;
+        const killXp = u.kind === 'tank' || u.kind === 'artillery' || u.kind === 'turret' ? XP_KILL_HEAVY : XP_KILL_LIGHT;
+        this.awardUnitXp(attacker, killXp);
+      }
 
       if (isOilTruck) {
         // Oil trucks erupt in a huge fiery oil slick explosion!
@@ -1247,15 +1346,22 @@ export class WarFrontSimulation {
     }
   }
 
-  public damageBridge(bridge: Bridge, amount: number, attacker: 'player' | 'enemy') {
+  public damageBridge(bridge: Bridge, amount: number, attacker: 'player' | 'enemy', attackerUnit: Unit | null = null) {
     if (bridge.status !== 'intact') return;
+    const applied = Math.min(bridge.hp, Math.max(0, amount));
     bridge.hp -= amount;
     bridge.hitFlash = 0.08;
+    if (attackerUnit && attackerUnit.alive && applied > 0) {
+      this.awardUnitXp(attackerUnit, applied * XP_PER_DAMAGE * 0.6);
+    }
     if (bridge.hp <= 0) {
       bridge.hp = 0;
       bridge.status = 'destroyed';
       if (attacker === 'player') {
         this.bridgesDestroyedByPlayer++;
+      }
+      if (attackerUnit && attackerUnit.alive) {
+        this.awardUnitXp(attackerUnit, XP_BRIDGE_DEMOLISH);
       }
 
       // Any land unit standing right on the collapsing bridge falls into the river!
@@ -1265,7 +1371,7 @@ export class WarFrontSimulation {
           Math.abs(u.x - bridge.x) <= bridge.width * 0.5 &&
           Math.abs(u.y - bridge.y) <= bridge.height * 0.5
         ) {
-          this.damageUnit(u, u.maxHp + 50);
+          this.damageUnit(u, u.maxHp + 50, attackerUnit);
           this.spawnBurst(u.x, u.y, 'splash', 10, '#8cc8db', 80);
         }
       }
@@ -1510,7 +1616,9 @@ export class WarFrontSimulation {
     let strandedPlayerTrucks = 0;
     let strandedEnemyTrucks = 0;
     let playerUnits = 0;
+    let playerVeterans = 0;
     let selectedCount = 0;
+    let selectedVeterans = 0;
 
     for (const u of this.units) {
       if (!u.alive) continue;
@@ -1523,7 +1631,11 @@ export class WarFrontSimulation {
         }
       } else if (u.faction === 'player') {
         playerUnits++;
-        if (u.selected) selectedCount++;
+        if (u.rank > 0) playerVeterans++;
+        if (u.selected) {
+          selectedCount++;
+          if (u.rank > 0) selectedVeterans++;
+        }
       }
     }
 
@@ -1546,7 +1658,9 @@ export class WarFrontSimulation {
       bridgesIntact,
       bridgesTotal: this.map.bridges.length,
       playerUnits,
+      playerVeterans,
       selectedCount,
+      selectedVeterans,
       playerHqHp: Math.round(this.map.playerHQ.hp),
       playerHqMaxHp: this.map.playerHQ.maxHp,
       enemyHqHp: Math.round(this.map.enemyHQ.hp),

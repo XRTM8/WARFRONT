@@ -43,6 +43,7 @@ export default function App() {
       onOilDeposit: () => sfx.playOilDeposit(),
       onCapture: (friendly) => sfx.playCapture(friendly),
       onUnitReady: () => sfx.playUnitReady(),
+      onPromotion: () => sfx.playPromotion(),
       onVictory: () => sfx.playVictory(),
       onDefeat: () => sfx.playDefeat(),
     });
@@ -403,7 +404,7 @@ export default function App() {
       if (hudSyncAccum >= 0.12 || document.body.dataset.state !== sim.phase) {
         hudSyncAccum = 0;
         const snap = sim.getHudSnapshot();
-        const key = `${snap.phase}|${snap.outcome}|${snap.playerOil}|${snap.playerRigs}|${snap.playerTrucks}|${snap.strandedPlayerTrucks}|${snap.bridgesIntact}|${snap.selectedCount}|${snap.playerHqHp}|${snap.enemyHqHp}|${snap.buildMode}|${snap.eventBanner?.id ?? 0}|${snap.theater}|${snap.seed}`;
+        const key = `${snap.phase}|${snap.outcome}|${snap.playerOil}|${snap.playerRigs}|${snap.playerTrucks}|${snap.strandedPlayerTrucks}|${snap.bridgesIntact}|${snap.playerVeterans}|${snap.selectedCount}|${snap.playerHqHp}|${snap.enemyHqHp}|${snap.buildMode}|${snap.eventBanner?.id ?? 0}|${snap.theater}|${snap.seed}`;
         if (key !== lastHudKey) {
           lastHudKey = key;
           document.body.dataset.state = snap.phase;

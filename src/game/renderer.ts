@@ -1,4 +1,4 @@
-import { THEATER_PALETTES, TILE_SIZE } from './constants';
+import { THEATER_PALETTES, TILE_SIZE, VETERANCY_RANKS } from './constants';
 import { Bridge, CommandHQ, MapData, OilRig, Unit, Vec2 } from './types';
 import { WarFrontSimulation } from './simulation';
 
@@ -775,6 +775,18 @@ export class WarFrontRenderer {
       ctx.fillRect(-1.5, -17 + bob, 3, 3);
     }
 
+    // Promotion glow pulse ring
+    if (u.promoFlash > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#ffd659';
+      ctx.globalAlpha = Math.min(1, u.promoFlash / 0.7);
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, u.radius + 9 + (1 - u.promoFlash / 0.7) * 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Compact unit HP bar (always shown when damaged or selected)
     if (u.hp < u.maxHp || u.selected) {
       const pct = Math.max(0, u.hp / u.maxHp);
@@ -783,6 +795,79 @@ export class WarFrontRenderer {
       ctx.fillRect(-bw / 2 - 1, -u.radius - 11, bw + 2, 5);
       ctx.fillStyle = isPlayer ? '#73d65e' : '#ef5350';
       ctx.fillRect(-bw / 2, -u.radius - 10, Math.round(bw * pct), 3);
+
+      // Selected unit XP progress bar toward next veterancy rank
+      if (u.selected && u.kind !== 'truck' && u.rank < 3) {
+        const curFloor = VETERANCY_RANKS[u.rank].xpRequired;
+        const nextReq = VETERANCY_RANKS[u.rank + 1].xpRequired;
+        const xpPct = Math.max(0, Math.min(1, (u.xp - curFloor) / Math.max(1, nextReq - curFloor)));
+        ctx.fillStyle = 'rgba(10, 12, 8, 0.85)';
+        ctx.fillRect(-bw / 2 - 1, -u.radius - 6, bw + 2, 3);
+        ctx.fillStyle = '#f2be42';
+        ctx.fillRect(-bw / 2, -u.radius - 5, Math.round(bw * xpPct), 1.5);
+      }
+    }
+
+    // Military Veterancy Rank Badge (1 Chevron / 2 Chevrons / Ace Gold Star)
+    if (u.rank !== 0) {
+      this.drawRankBadge(ctx, u.radius + 2, -u.radius - 10, u.rank);
+    }
+
+    ctx.restore();
+  }
+
+  private drawRankBadge(ctx: CanvasRenderingContext2D, bx: number, by: number, rank: 1 | 2 | 3) {
+    ctx.save();
+    ctx.translate(Math.round(bx), Math.round(by));
+
+    // Dark military insignia plate with brass/gold rim
+    const w = 15;
+    const h = 14;
+    ctx.fillStyle = '#14170f';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = rank === 3 ? '#ffd95e' : rank === 2 ? '#e6ad38' : '#b88b3a';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+
+    if (rank === 1) {
+      // Rank 1 (Veteran): Single upward bronze-gold chevron
+      ctx.strokeStyle = '#e5b145';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(3, 9.5);
+      ctx.lineTo(7.5, 4.5);
+      ctx.lineTo(12, 9.5);
+      ctx.stroke();
+    } else if (rank === 2) {
+      // Rank 2 (Elite): Twin stacked gold chevrons
+      ctx.strokeStyle = '#f7ca4d';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(3, 7);
+      ctx.lineTo(7.5, 3);
+      ctx.lineTo(12, 7);
+      ctx.moveTo(3, 11);
+      ctx.lineTo(7.5, 7);
+      ctx.lineTo(12, 11);
+      ctx.stroke();
+    } else {
+      // Rank 3 (Hero / Ace): 5-point gold star
+      ctx.fillStyle = '#ffe066';
+      const cx = 7.5;
+      const cy = 7.2;
+      const outerR = 5;
+      const innerR = 2.1;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+        const r = i % 2 === 0 ? outerR : innerR;
+        const px = cx + Math.cos(angle) * r;
+        const py = cy + Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
     }
 
     ctx.restore();

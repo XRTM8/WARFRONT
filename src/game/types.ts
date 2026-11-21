@@ -108,10 +108,16 @@ export interface Unit {
   // Windup telegraph (for artillery / heavy shots)
   windupTimer: number;
   windupTarget: Vec2 | null;
+  // Veterancy progression
+  xp: number;
+  rank: 0 | 1 | 2 | 3;
+  kills: number;
+  promoFlash: number;
 }
 
 export interface Projectile {
   id: number;
+  sourceUnitId: number;
   faction: 'player' | 'enemy';
   kind: 'bullet' | 'shell' | 'rocket';
   x: number;
@@ -199,7 +205,9 @@ export interface HudSnapshot {
   bridgesIntact: number;
   bridgesTotal: number;
   playerUnits: number;
+  playerVeterans: number;
   selectedCount: number;
+  selectedVeterans: number;
   playerHqHp: number;
   playerHqMaxHp: number;
   enemyHqHp: number;

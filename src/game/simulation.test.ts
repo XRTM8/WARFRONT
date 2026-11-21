@@ -90,3 +90,63 @@ test('destroying enemy HQ triggers victory and destroying player HQ triggers def
   assert.equal(loseSim.outcome, 'defeat');
   assert.equal(loseSim.phase, 'gameover');
 });
+
+test('units gain veterancy XP from successful engagements, boosting attack power and max health across ranks 1-3', () => {
+  const sim = new WarFrontSimulation('kirkuk', 104729);
+  sim.phase = 'playing';
+
+  const tank = sim.spawnUnit('player', 'tank', 400, 400);
+  const baseDamage = UNIT_SPECS.tank.damage;
+  const baseHp = UNIT_SPECS.tank.hp;
+  assert.equal(tank.rank, 0);
+  assert.equal(tank.damage, baseDamage);
+  assert.equal(tank.maxHp, baseHp);
+
+  // Engage and destroy an enemy tank -> earns damage XP + heavy kill bonus -> promotes to Rank 1
+  const enemyTank = sim.spawnUnit('enemy', 'tank', 520, 400);
+  sim.damageUnit(enemyTank, enemyTank.maxHp, tank);
+  assert.equal(tank.kills, 1);
+  assert.equal(tank.rank, 1);
+  assert.ok(tank.damage > baseDamage, 'Rank 1 veteran should have increased attack power');
+  assert.ok(tank.maxHp > baseHp, 'Rank 1 veteran should have increased max health');
+  assert.ok(sim.floatingPopups.some((p) => p.text.includes('VET')));
+  assert.equal(sim.getHudSnapshot().playerVeterans, 1);
+
+  // Further engagements promote to Rank 2 (Elite) and Rank 3 (Ace), capping cleanly at Rank 3
+  const enemy2 = sim.spawnUnit('enemy', 'artillery', 540, 400);
+  sim.damageUnit(enemy2, enemy2.maxHp, tank);
+  assert.equal(tank.rank, 2);
+  const rank2Damage = tank.damage;
+  const rank2Hp = tank.maxHp;
+
+  const enemy3 = sim.spawnUnit('enemy', 'tank', 560, 400);
+  const enemy4 = sim.spawnUnit('enemy', 'tank', 580, 400);
+  sim.damageUnit(enemy3, enemy3.maxHp, tank);
+  sim.damageUnit(enemy4, enemy4.maxHp, tank);
+  assert.equal(tank.rank, 3);
+  assert.ok(tank.damage > rank2Damage, 'Rank 3 Ace should exceed Rank 2 attack power');
+  assert.ok(tank.maxHp > rank2Hp, 'Rank 3 Ace should exceed Rank 2 max health');
+
+  // Extra XP beyond Ace caps cleanly at Rank 3
+  sim.awardUnitXp(tank, 500);
+  assert.equal(tank.rank, 3);
+
+  // Supply trucks never gain combat veterancy
+  const truck = sim.units.find((u) => u.kind === 'truck')!;
+  assert.equal(sim.awardUnitXp(truck, 300), false);
+  assert.equal(truck.rank, 0);
+});
+
+test('destroying a bridge awards demolition XP and promotes the attacking engineer', () => {
+  const sim = new WarFrontSimulation('kirkuk', 104729);
+  sim.phase = 'playing';
+
+  const eng = sim.spawnUnit('player', 'engineer', 500, 500);
+  const bridge = sim.map.bridges[0];
+  sim.damageBridge(bridge, bridge.maxHp, 'player', eng);
+
+  assert.equal(bridge.status, 'destroyed');
+  assert.ok(eng.rank >= 1, 'Engineer should promote after blowing up a bridge');
+  assert.ok(eng.damage > UNIT_SPECS.engineer.damage);
+});
+

@@ -118,6 +118,12 @@ export class SoundEngine {
     this.playTone(380, 520, 0.09, 'triangle', 0.06, 0.02);
   }
 
+  public playPromotion() {
+    this.playTone(440, 554, 0.11, 'triangle', 0.085, 0.01);
+    setTimeout(() => this.playTone(554, 659, 0.12, 'triangle', 0.085, 0.01), 75);
+    setTimeout(() => this.playTone(659, 880, 0.2, 'triangle', 0.095, 0.01), 150);
+  }
+
   public playVictory() {
     const notes = [330, 440, 554, 659];
     notes.forEach((n, idx) => {
