@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Chakra Petch', 'Cairo', system-ui, sans-serif;
+    --font-ui: 'Cairo', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #11130e;
+    color: #f2ebd9;
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button:focus-visible {
+    outline: 2px solid #e6a838;
+    outline-offset: 2px;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-text-stroke {
+  text-shadow:
+    0 2px 0 rgba(10, 12, 8, 0.95),
+    0 0 8px rgba(10, 12, 8, 0.75);
+}
+
+.pixel-canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
