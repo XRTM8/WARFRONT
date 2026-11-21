@@ -2,6 +2,7 @@ class_name HUDTopBar
 extends RefCounted
 
 const Constants = preload("res://scripts/constants.gd")
+const HardwareDisplayManager = preload("res://scripts/hardware_display_manager.gd")
 
 var oil_num_label: Label = null
 var rigs_val_label: Label = null
@@ -9,6 +10,7 @@ var trucks_val_label: Label = null
 var bridges_val_label: Label = null
 var veterans_val_label: Label = null
 var veterans_container: HBoxContainer = null
+var fps_badge_btn: Button = null
 
 var player_hp_pct_label: Label = null
 var enemy_hp_pct_label: Label = null
@@ -18,7 +20,7 @@ var enemy_hp_bar: ProgressBar = null
 var momentum_label: Label = null
 var momentum_bar: ProgressBar = null
 
-func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> void:
+func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable(), on_graphics_cb: Callable = Callable()) -> void:
 	var top_margin = MarginContainer.new()
 	top_margin.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	top_margin.add_theme_constant_override("margin_left", 14)
@@ -250,6 +252,26 @@ func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> v
 	enemy_hp_pct_label.add_theme_font_size_override("font_size", 10)
 	ehq_box.add_child(enemy_hp_pct_label)
 
+	fps_badge_btn = Button.new()
+	fps_badge_btn.text = "[ 120 FPS // 120Hz ]"
+	fps_badge_btn.custom_minimum_size = Vector2(136, 28)
+	fps_badge_btn.add_theme_font_size_override("font_size", 9)
+	var f_style = StyleBoxFlat.new()
+	f_style.bg_color = Color(0.08, 0.12, 0.08, 0.95)
+	f_style.border_color = Color("#22c55e")
+	f_style.border_width_left = 1
+	f_style.border_width_right = 1
+	f_style.border_width_top = 1
+	f_style.border_width_bottom = 2
+	f_style.corner_radius_top_left = 3
+	f_style.corner_radius_top_right = 3
+	f_style.corner_radius_bottom_left = 3
+	f_style.corner_radius_bottom_right = 3
+	fps_badge_btn.add_theme_stylebox_override("normal", f_style)
+	if on_graphics_cb.is_valid():
+		fps_badge_btn.pressed.connect(on_graphics_cb)
+	top_layout.add_child(fps_badge_btn)
+
 	if on_pause_cb.is_valid():
 		var pause_btn = Button.new()
 		pause_btn.text = "[ ESC // إيقاف ]"
@@ -273,6 +295,17 @@ func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> v
 func update(sim) -> void:
 	if sim == null or sim.map.is_empty():
 		return
+		
+	# Update Realtime Telemetry Badge (120 FPS / Hz / Preset)
+	if fps_badge_btn != null and is_instance_valid(fps_badge_btn):
+		var mgr = HardwareDisplayManager.get_instance()
+		if not mgr.show_fps_overlay:
+			fps_badge_btn.visible = false
+		else:
+			fps_badge_btn.visible = true
+			var fps = Engine.get_frames_per_second()
+			var hz_str = "%dHz" % int(round(mgr.hardware_info.get("monitor_hz", 60.0)))
+			fps_badge_btn.text = "[ %d FPS // %s %s ]" % [fps, hz_str, mgr.current_preset.to_upper()]
 		
 	# 1. Update Hero Oil Count
 	if oil_num_label != null:

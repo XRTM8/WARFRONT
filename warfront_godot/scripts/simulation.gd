@@ -14,6 +14,7 @@ const SimProductionQueue = preload("res://scripts/sim_production_queue.gd")
 const SimHazards = preload("res://scripts/sim_hazards.gd")
 const SimAITactics = preload("res://scripts/sim_ai_tactics.gd")
 const SimBuildingSystems = preload("res://scripts/sim_building_systems.gd")
+const HardwareDisplayManager = preload("res://scripts/hardware_display_manager.gd")
 
 signal event_pushed(key: String, tone: String)
 signal sound_triggered(sfx_name: String)
@@ -554,7 +555,9 @@ func spawn_particle(kind: String, x: float, y: float, vx: float, vy: float, size
 	p["alpha"] = 1.0
 
 func spawn_burst(x: float, y: float, kind: String, count: int, col: Color, spd: float) -> void:
-	for i in range(count):
+	var mult = HardwareDisplayManager.get_instance().active_settings.get("particle_multiplier", 1.0)
+	var final_count = max(1, int(round(float(count) * mult)))
+	for i in range(final_count):
 		var p = particles[particle_cursor]
 		particle_cursor = (particle_cursor + 1) % MAX_PARTICLES
 		p["active"] = true

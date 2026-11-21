@@ -32,6 +32,7 @@ const MapGenArchetypes = preload("res://scripts/map_gen_archetypes.gd")
 const SimKinematics = preload("res://scripts/sim_kinematics.gd")
 const SimArmorPhysics = preload("res://scripts/sim_armor_physics.gd")
 const SimFormationSteering = preload("res://scripts/sim_formation_steering.gd")
+const HardwareDisplayManager = preload("res://scripts/hardware_display_manager.gd")
 
 func _init() -> void:
 	print("--- Running WarFront Godot Automated Verification Tests ---")
@@ -56,6 +57,7 @@ func _init() -> void:
 	test_map_generation_engine_2_and_stress_test()
 	test_combined_arms_production_and_gated_queues()
 	test_polish_kinematics_ballistics_and_base_systems()
+	test_hardware_autodetect_120fps_and_display_quality()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -1091,6 +1093,78 @@ func test_polish_kinematics_ballistics_and_base_systems() -> void:
 	assert(selected_kinds.size() == 1, "Sub-selection cycle must filter selection to exactly one unit category")
 	
 	print("✔ Test 20: Kinematics, Armor Physics, Base Decom/Repair, Drag-to-Face & Sub-selection passed.")
+
+func test_hardware_autodetect_120fps_and_display_quality() -> void:
+	var mgr = HardwareDisplayManager.get_instance()
+	assert(mgr != null, "HardwareDisplayManager instance must be valid")
+	
+	# 1. Hardware Detection
+	var info = mgr.detect_hardware_capabilities()
+	assert(info.has("gpu_name"), "Hardware info must detect GPU adapter name")
+	assert(info.has("cpu_cores") and info["cpu_cores"] >= 1, "Hardware info must detect CPU core count")
+	assert(info.has("monitor_hz") and info["monitor_hz"] > 0.0, "Hardware info must detect monitor refresh rate")
+	assert(info.has("device_tier"), "Hardware info must classify system performance tier")
+	assert(info["device_tier"] in ["low", "medium", "high", "ultra"], "Device tier must be a recognized category")
+	
+	# 2. 120 FPS & High-Framerate Scaling
+	mgr.apply_fps_limit(120)
+	assert(Engine.max_fps == 120, "Engine.max_fps must be locked to 120 FPS")
+	assert(mgr.current_fps_limit == 120, "Manager state must reflect 120 FPS target")
+	
+	mgr.apply_fps_limit(144)
+	assert(Engine.max_fps == 144, "Engine.max_fps must adapt to 144 FPS high-refresh")
+	
+	mgr.apply_fps_limit(60)
+	assert(Engine.max_fps == 60, "Engine.max_fps must support 60 FPS standard mode")
+	
+	mgr.apply_fps_limit(0)
+	assert(Engine.max_fps == 0, "Engine.max_fps must support 0 (Uncapped)")
+	
+	mgr.apply_fps_limit(-1)
+	assert(Engine.max_fps >= 60, "Auto FPS limit must at least match standard monitor refresh rate")
+	
+	# 3. Graphics Quality Presets & Dynamic Fidelity Scaling
+	var ultra_settings = mgr.apply_quality_preset("ultra")
+	assert(ultra_settings["preset"] == "ultra", "Preset must switch to Ultra")
+	assert(ultra_settings["particle_multiplier"] == 1.40, "Ultra preset must scale particle multiplier to 1.4x")
+	assert(ultra_settings["directional_shadows"] == true, "Ultra preset must enable directional shadows")
+	assert(ultra_settings["dynamic_muzzle_lights"] == true, "Ultra preset must enable dynamic muzzle lighting")
+	
+	var low_settings = mgr.apply_quality_preset("low")
+	assert(low_settings["preset"] == "low", "Preset must switch to Low")
+	assert(low_settings["particle_multiplier"] == 0.50, "Low preset must reduce particle load to 0.5x for performance")
+	assert(low_settings["directional_shadows"] == false, "Low preset must disable costly directional shadows")
+	
+	var high_settings = mgr.apply_quality_preset("high")
+	assert(high_settings["particle_multiplier"] == 1.00, "High preset must use 1.0 baseline particle budget")
+	
+	# 4. Auto-Detect and Calibrate Engine
+	var auto_res = mgr.auto_detect_and_apply()
+	assert(not auto_res.is_empty(), "Auto-detection must return valid active settings")
+	assert(mgr.current_fps_limit >= 60, "Auto-calibration must select optimal framerate >= 60 FPS")
+	
+	# 5. V-Sync Modes
+	mgr.apply_vsync_mode("adaptive")
+	assert(mgr.current_vsync_mode == "adaptive", "Manager must record adaptive V-Sync")
+	mgr.apply_vsync_mode("mailbox")
+	assert(mgr.current_vsync_mode == "mailbox", "Manager must record mailbox / fast V-Sync")
+	
+	# 6. Window Modes
+	mgr.apply_window_mode("fullscreen")
+	assert(mgr.current_window_mode == "fullscreen", "Manager must record fullscreen mode")
+	mgr.apply_window_mode("windowed")
+	assert(mgr.current_window_mode == "windowed", "Manager must record windowed mode")
+	
+	# 7. Realtime Diagnostics Telemetry
+	var diag = mgr.get_diagnostics()
+	assert(diag.has("current_fps"), "Diagnostics must track current realtime FPS")
+	assert(diag.has("target_fps"), "Diagnostics must report target framerate limit")
+	assert(diag.has("frame_time_ms"), "Diagnostics must calculate frame time in milliseconds")
+	assert(diag.has("monitor_hz"), "Diagnostics must report display refresh rate")
+	assert(diag.has("quality_preset"), "Diagnostics must report active quality tier")
+	
+	print("✔ Test 21: Hardware Auto-detection, 120 FPS / Refresh Rate Sync & Display Quality passed.")
+
 
 
 

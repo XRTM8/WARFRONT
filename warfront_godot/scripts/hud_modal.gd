@@ -5,6 +5,7 @@ const HUDModalCommon = preload("res://scripts/hud_modal_common.gd")
 const HUDModalDebrief = preload("res://scripts/hud_modal_debrief.gd")
 const HUDModalManual = preload("res://scripts/hud_modal_manual.gd")
 const HUDModalLobby = preload("res://scripts/hud_modal_lobby.gd")
+const HUDModalGraphics = preload("res://scripts/hud_modal_graphics.gd")
 
 var parent_canvas: CanvasLayer = null
 var pause_panel: PanelContainer = null
@@ -12,6 +13,7 @@ var debrief_panel: PanelContainer = null
 var theater_panel: PanelContainer = null
 var help_panel: PanelContainer = null
 var match_setup_panel: PanelContainer = null
+var graphics_panel: PanelContainer = null
 
 var is_paused: bool = false
 var audio_muted: bool = false
@@ -101,6 +103,15 @@ func setup(
 				pause_panel.visible = true
 	)
 	match_setup_panel = _lobby_dict["panel"]
+	
+	graphics_panel = HUDModalGraphics.build_graphics_modal(
+		parent_canvas,
+		func():
+			if graphics_panel != null:
+				graphics_panel.visible = false
+			if pause_panel != null:
+				pause_panel.visible = true
+	)
 
 func toggle_pause() -> void:
 	is_paused = not is_paused
@@ -113,6 +124,8 @@ func toggle_pause() -> void:
 			help_panel.visible = false
 		if match_setup_panel != null:
 			match_setup_panel.visible = false
+		if graphics_panel != null:
+			graphics_panel.visible = false
 
 func show_debrief(sim) -> void:
 	if debrief_panel == null or sim == null:
@@ -120,6 +133,12 @@ func show_debrief(sim) -> void:
 	is_paused = true
 	debrief_panel.visible = true
 	HUDModalDebrief.update_debrief_stats(sim, _debrief_dict)
+
+func show_graphics_modal() -> void:
+	hide_all()
+	is_paused = true
+	if graphics_panel != null:
+		graphics_panel.visible = true
 
 func hide_all() -> void:
 	is_paused = false
@@ -133,6 +152,8 @@ func hide_all() -> void:
 		help_panel.visible = false
 	if match_setup_panel != null:
 		match_setup_panel.visible = false
+	if graphics_panel != null:
+		graphics_panel.visible = false
 
 func _build_pause_modal() -> void:
 	pause_panel = PanelContainer.new()
@@ -202,6 +223,14 @@ func _build_pause_modal() -> void:
 		help_panel.visible = true
 	)
 	vbox.add_child(help_btn)
+	
+	var graphics_btn = HUDModalCommon.create_menu_button("[ DISPLAY & 120Hz // إعدادات الشاشة والجودة ومعدل الإطارات ]", Color("#38bdf8"))
+	graphics_btn.pressed.connect(func():
+		pause_panel.visible = false
+		if graphics_panel != null:
+			graphics_panel.visible = true
+	)
+	vbox.add_child(graphics_btn)
 	
 	var audio_btn = HUDModalCommon.create_menu_button("[ AUDIO // نظام الصوت الميداني ]", Color("#a1a1aa"))
 	audio_btn.pressed.connect(func():

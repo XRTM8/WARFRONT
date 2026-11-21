@@ -102,7 +102,7 @@ func toggle_pause() -> void:
 
 func build_tactical_hud() -> void:
 	# 1. Top Bar
-	top_bar.build_top_bar(self, func(): toggle_pause())
+	top_bar.build_top_bar(self, func(): toggle_pause(), func(): modal.show_graphics_modal())
 
 	# 2. Event Notification Banner (Tactical Toast Badge)
 	var banner_container = PanelContainer.new()

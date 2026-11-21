@@ -14,6 +14,7 @@ const RenderFX = preload("res://scripts/render_fx.gd")
 const SimBuildings = preload("res://scripts/sim_buildings.gd")
 const RenderGhostFormation = preload("res://scripts/render_ghost_formation.gd")
 const RenderPolishEffects = preload("res://scripts/render_polish_effects.gd")
+const HardwareDisplayManager = preload("res://scripts/hardware_display_manager.gd")
 
 var sim: Simulation = null
 var terrain_texture: ImageTexture = null
@@ -87,8 +88,9 @@ func _draw() -> void:
 			RenderStructures.draw_burning_well(self, well, sim.sim_time)
 		
 	# 4. Directional Cast Shadows: Grounding Structures & Units in 3D Depth
-	RenderAtmosphere.draw_directional_structure_shadows(self, sim.structures, view_rect)
-	RenderAtmosphere.draw_directional_unit_shadows(self, sim.units, view_rect)
+	if HardwareDisplayManager.get_instance().active_settings.get("directional_shadows", true):
+		RenderAtmosphere.draw_directional_structure_shadows(self, sim.structures, view_rect)
+		RenderAtmosphere.draw_directional_unit_shadows(self, sim.units, view_rect)
 
 	# 5. Bridges
 	for b in map.get("bridges", []):
@@ -147,7 +149,8 @@ func _draw() -> void:
 	for u in sim.units:
 		if u.get("alive", false) and view_rect.has_point(Vector2(u["x"], u["y"])):
 			RenderUnits.draw_unit(self, default_font, u, sim.sim_time)
-	RenderPolishEffects.draw_dynamic_muzzle_lights(self, sim.units)
+	if HardwareDisplayManager.get_instance().active_settings.get("dynamic_muzzle_lights", true):
+		RenderPolishEffects.draw_dynamic_muzzle_lights(self, sim.units)
 			
 	# 17. Projectiles
 	for pr in sim.projectiles:

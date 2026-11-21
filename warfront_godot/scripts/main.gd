@@ -8,6 +8,7 @@ const Simulation = preload("res://scripts/simulation.gd")
 const Pathfinding = preload("res://scripts/pathfinding.gd")
 const Constants = preload("res://scripts/constants.gd")
 const SimFormationSteering = preload("res://scripts/sim_formation_steering.gd")
+const HardwareDisplayManager = preload("res://scripts/hardware_display_manager.gd")
 
 @onready var camera: Camera2D = $Camera2D
 @onready var renderer: WarFrontRenderer2D = $Renderer2D
@@ -33,6 +34,7 @@ var control_groups: Dictionary = {}
 var last_group_tap_time: Dictionary = {}
 
 func _ready() -> void:
+	HardwareDisplayManager.get_instance().auto_detect_and_apply()
 	sim = Simulation.new("kirkuk", 104729)
 	sim.sound_triggered.connect(sound.play_sound)
 	
@@ -316,6 +318,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_place_structure_requested("missile_battery")
 		elif event.keycode == KEY_F6:
 			_on_place_structure_requested("sandbag_wall")
+		elif event.keycode == KEY_F9:
+			hud.modal.show_graphics_modal()
+		elif event.keycode == KEY_F10:
+			var mgr = HardwareDisplayManager.get_instance()
+			mgr.show_fps_overlay = not mgr.show_fps_overlay
+			var txt = "[ FPS TELEMETRY: ACTIVE // عداد الإطارات مفعل ]" if mgr.show_fps_overlay else "[ FPS TELEMETRY: OFF // عداد الإطارات معطل ]"
+			sim.spawn_floating_text(camera.position.x, camera.position.y - 40.0, txt, Color("#22c55e"), 1.2)
+		elif event.keycode == KEY_F11:
+			var mgr = HardwareDisplayManager.get_instance()
+			var next_mode = "fullscreen" if mgr.current_window_mode == "windowed" else "windowed"
+			mgr.apply_window_mode(next_mode)
+			var txt = "[ FULLSCREEN // ملء الشاشة ]" if next_mode == "fullscreen" else "[ WINDOWED // نمط النافذة ]"
+			sim.spawn_floating_text(camera.position.x, camera.position.y - 40.0, txt, Color("#38bdf8"), 1.2)
 		elif event.keycode == KEY_B:
 			_on_bridge_rebuild_requested()
 		elif event.keycode == KEY_K:
