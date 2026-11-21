@@ -13,10 +13,10 @@ const HQ_MAX_HP: float = 1600.0
 const TRUCK_CARGO_CAPACITY: int = 55
 
 const TACTICAL_STANCES: Dictionary = {
-	"guard": { "id": "guard", "name": "حراسة ودفاع", "leash_dist": 140.0, "icon": "🛡️" },
-	"attack_move": { "id": "attack_move", "name": "اشتباك وتقدم", "leash_dist": 280.0, "icon": "⚔️" },
-	"hold_ground": { "id": "hold_ground", "name": "ثبات وتمركز", "leash_dist": 0.0, "icon": "🛑" },
-	"retreat": { "id": "retreat", "name": "انسحاب تكتيكي", "leash_dist": 9999.0, "icon": "💨" }
+	"guard": { "id": "guard", "name": "حراسة ودفاع", "leash_dist": 140.0, "icon": "[GUARD]" },
+	"attack_move": { "id": "attack_move", "name": "اشتباك وتقدم", "leash_dist": 280.0, "icon": "[ENGAGE]" },
+	"hold_ground": { "id": "hold_ground", "name": "ثبات وتمركز", "leash_dist": 0.0, "icon": "[HOLD]" },
+	"retreat": { "id": "retreat", "name": "انسحاب تكتيكي", "leash_dist": 9999.0, "icon": "[RETREAT]" }
 }
 
 const UNIT_SPECS: Dictionary = {
@@ -421,14 +421,14 @@ const AIRDROP_TYPES: Dictionary = {
 	"nano_repair": {
 		"id": "nano_repair",
 		"title": "نانو الصيانة والخبرة التكتيكية",
-		"icon": "🔧",
+		"icon": "[REPAIR]",
 		"color": Color("#38bdf8"),
 		"desc": "يصلح فوراً كافة آليات الفصيل القريبة إلى 100% ويمنحها +120 نقطة خبرة!"
 	},
 	"fuel_cache": {
 		"id": "fuel_cache",
 		"title": "مخزون وقود استراتيجي عاجل",
-		"icon": "🛢️",
+		"icon": "[SUPPLY]",
 		"color": Color("#facc15"),
 		"oil": 240,
 		"desc": "يمنح الفصيل فوراً +240 برميل نفط لدعم العمليات الحربية المكثفة!"
@@ -436,7 +436,7 @@ const AIRDROP_TYPES: Dictionary = {
 	"armor_reinforce": {
 		"id": "armor_reinforce",
 		"title": "دعم مدرع فوري من النخبة",
-		"icon": "🛡️",
+		"icon": "[ARMOR]",
 		"color": Color("#84cc16"),
 		"unit_kind": "tank",
 		"unit_rank": 2,

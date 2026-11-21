@@ -70,7 +70,7 @@ func _on_event_pushed(key: String, _tone: String) -> void:
 	}
 	var msg = arabic_events.get(key, key.replace("_", " ").to_upper())
 	if banner_panel != null and banner_label != null:
-		banner_label.text = "⚡ [ إشعار تكتيكي ]  " + msg
+		banner_label.text = "[ COMMS // إشعار تكتيكي ]  " + msg
 		banner_panel.visible = true
 		banner_timer = 3.5
 

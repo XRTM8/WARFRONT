@@ -143,16 +143,16 @@ func build_dossier(parent: Control, on_micro_action: Callable = Callable()) -> v
 	stats_grid.add_theme_constant_override("separation", 6)
 	info_vbox.add_child(stats_grid)
 	
-	stat_dmg_label = _create_stat_badge("⚔️", "44")
+	stat_dmg_label = _create_stat_badge("DMG", "44")
 	stats_grid.add_child(stat_dmg_label)
 	
-	stat_rng_label = _create_stat_badge("🎯", "220")
+	stat_rng_label = _create_stat_badge("RNG", "220m")
 	stats_grid.add_child(stat_rng_label)
 	
-	stat_spd_label = _create_stat_badge("⚡", "74")
+	stat_spd_label = _create_stat_badge("SPD", "74")
 	stats_grid.add_child(stat_spd_label)
 	
-	stat_kills_label = _create_stat_badge("🎖️", "0")
+	stat_kills_label = _create_stat_badge("KILLS", "0")
 	stats_grid.add_child(stat_kills_label)
 
 	# Micro Tactical Actions Tray (Attack-Move, Stop, Hold Ground, Retreat)
@@ -161,11 +161,11 @@ func build_dossier(parent: Control, on_micro_action: Callable = Callable()) -> v
 	info_vbox.add_child(micro_actions_box)
 
 	var actions = [
-		{ "id": "attack_move", "label": "[A] اشتباك", "color": Color("#ef4444") },
-		{ "id": "stop", "label": "[S] توقف", "color": Color("#eab308") },
-		{ "id": "hold", "label": "[H] ثبات", "color": Color("#3b82f6") },
-		{ "id": "retreat", "label": "[R] تراجع", "color": Color("#a855f7") },
-		{ "id": "ability", "label": "[F] قدرة", "color": Color("#f97316") }
+		{ "id": "attack_move", "label": "[A] ENGAGE // اشتباك", "color": Color("#ef4444") },
+		{ "id": "stop", "label": "[S] HALT // توقف", "color": Color("#eab308") },
+		{ "id": "hold", "label": "[H] DEFEND // ثبات", "color": Color("#3b82f6") },
+		{ "id": "retreat", "label": "[R] RETREAT // تراجع", "color": Color("#a855f7") },
+		{ "id": "ability", "label": "[F] ABILITY // قدرة", "color": Color("#f97316") }
 	]
 	for act in actions:
 		var btn = _create_micro_button(act["id"], act["label"], act["color"])
@@ -276,10 +276,10 @@ func update(sim) -> void:
 		role_chip_label.add_theme_color_override("font_color", Color("#38bdf8"))
 		
 		var rank_titles = [
-			"مجند",
-			"★ مخضرم",
-			"★★ نخبة",
-			"★★★ بطل الحرب"
+			"[R-0] RECRUIT // مجند",
+			"[R-1] VETERAN // رقيب أول",
+			"[R-2] ELITE // نقيب عمليات",
+			"[R-3] WAR HERO // عميد ركن"
 		]
 		var r = u["rank"]
 		rank_label.text = rank_titles[r] if r < rank_titles.size() else ""
@@ -289,10 +289,10 @@ func update(sim) -> void:
 		hp_label.text = "%d/%d" % [int(round(u["hp"])), int(round(u["maxHp"]))]
 		
 		stats_grid.visible = true
-		stat_dmg_label.text = "⚔️ %d" % int(round(u["damage"]))
-		stat_rng_label.text = "🎯 %d" % int(round(u["range"]))
-		stat_spd_label.text = "⚡ %d" % int(round(u["speed"]))
-		stat_kills_label.text = "🎖️ %d" % u["kills"]
+		stat_dmg_label.text = "DMG: %d" % int(round(u["damage"]))
+		stat_rng_label.text = "RNG: %dm" % int(round(u["range"]))
+		stat_spd_label.text = "SPD: %d" % int(round(u["speed"]))
+		stat_kills_label.text = "KILLS: %d" % u["kills"]
 		
 		if micro_actions_box != null:
 			micro_actions_box.visible = true
@@ -316,10 +316,10 @@ func update(sim) -> void:
 					var spec = Constants.VETERAN_ABILITIES[u["kind"]]
 					var cd = u.get("abilityCooldown", 0.0)
 					if cd > 0.0:
-						ab_btn.text = "⏱️ %.1fs" % cd
+						ab_btn.text = "CD: %01.0fs" % cd
 						ab_btn.modulate = Color(0.6, 0.6, 0.6, 0.6)
 					else:
-						ab_btn.text = "[%s] %s" % [spec["hotkey"], spec["name"].substr(0, 12)]
+						ab_btn.text = "[%s] %s" % [spec["hotkey"], spec["name"].split(" ")[0]]
 						ab_btn.modulate = Color(1.3, 1.3, 1.3, 1.0)
 		
 		var stance_names = {
@@ -350,10 +350,10 @@ func update(sim) -> void:
 		hp_label.text = "%d%% متوسط الصحة" % int(round(avg_pct))
 		
 		stats_grid.visible = true
-		stat_dmg_label.text = "⚔️ تشكيل"
-		stat_rng_label.text = "🎯 منسق"
-		stat_spd_label.text = "⚡ نسق"
-		stat_kills_label.text = "🎖️ %d" % total_kills
+		stat_dmg_label.text = "DMG: BATTALION"
+		stat_rng_label.text = "RNG: COMBINED"
+		stat_spd_label.text = "SPD: FORMATION"
+		stat_kills_label.text = "KILLS: %d" % total_kills
 		
 		if micro_actions_box != null:
 			micro_actions_box.visible = true

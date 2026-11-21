@@ -400,5 +400,7 @@ static func draw_rank_badge(canvas: CanvasItem, default_font: Font, bx: float, b
 		canvas.draw_polyline(PackedVector2Array([Vector2(bx + 3, by + 7), Vector2(bx + 7.5, by + 3), Vector2(bx + 12, by + 7)]), Color("#f7ca4d"), 1.8)
 		canvas.draw_polyline(PackedVector2Array([Vector2(bx + 3, by + 11), Vector2(bx + 7.5, by + 7), Vector2(bx + 12, by + 11)]), Color("#f7ca4d"), 1.8)
 	elif rank == 3:
-		# Ace Gold Star
-		canvas.draw_string(default_font, Vector2(bx + 2, by + 11), "★", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, Color("#ffe066"))
+		# Triple Chevron (Master Sergeant / Senior Chief Veteran)
+		canvas.draw_polyline(PackedVector2Array([Vector2(bx + 3, by + 5.5), Vector2(bx + 7.5, by + 2.5), Vector2(bx + 12, by + 5.5)]), Color("#fde047"), 1.8)
+		canvas.draw_polyline(PackedVector2Array([Vector2(bx + 3, by + 9.0), Vector2(bx + 7.5, by + 6.0), Vector2(bx + 12, by + 9.0)]), Color("#fde047"), 1.8)
+		canvas.draw_polyline(PackedVector2Array([Vector2(bx + 3, by + 12.5), Vector2(bx + 7.5, by + 9.5), Vector2(bx + 12, by + 12.5)]), Color("#fde047"), 1.8)

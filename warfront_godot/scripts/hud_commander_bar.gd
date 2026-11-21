@@ -46,7 +46,7 @@ func build_commander_bar(parent: Control, on_power_requested: Callable) -> void:
 	top_hbox.add_child(phase_panel)
 	
 	phase_badge_label = Label.new()
-	phase_badge_label.text = "⚔️ مرحلة الاستطلاع"
+	phase_badge_label.text = "[ DEFCON 3 // مرحلة الاستطلاع ]"
 	phase_badge_label.add_theme_color_override("font_color", Color("#86efac"))
 	phase_badge_label.add_theme_font_size_override("font_size", 10)
 	phase_panel.add_child(phase_badge_label)
@@ -77,10 +77,10 @@ func build_commander_bar(parent: Control, on_power_requested: Callable) -> void:
 	
 	var powers_order = ["airstrike", "artillery_barrage", "recon_drone", "supply_drop"]
 	var power_icons = {
-		"airstrike": "✈️",
-		"artillery_barrage": "🚀",
-		"recon_drone": "📡",
-		"supply_drop": "📦"
+		"airstrike": "[AIR]",
+		"artillery_barrage": "[ART]",
+		"recon_drone": "[UAV]",
+		"supply_drop": "[LOG]"
 	}
 	
 	for p_id in powers_order:
@@ -133,7 +133,7 @@ func build_commander_bar(parent: Control, on_power_requested: Callable) -> void:
 	directive_panel.add_child(dir_hbox)
 	
 	directive_title = Label.new()
-	directive_title.text = "📋 الأوامر التكتيكية: جارٍ استقبال التوجيهات..."
+	directive_title.text = "[ DIRECTIVE // الأوامر ]: جارٍ استقبال التوجيهات..."
 	directive_title.add_theme_color_override("font_color", Color("#fef08a"))
 	directive_title.add_theme_font_size_override("font_size", 9)
 	dir_hbox.add_child(directive_title)
@@ -151,13 +151,13 @@ func update(sim) -> void:
 	# 1. Update Phase Badge
 	if phase_badge_label != null:
 		if sim.battle_phase == "recon":
-			phase_badge_label.text = "⚔️ مرحلة الاستطلاع والانتشار"
+			phase_badge_label.text = "[ DEFCON 3 // الاستطلاع والانتشار ]"
 			phase_badge_label.add_theme_color_override("font_color", Color("#86efac"))
 		elif sim.battle_phase == "escalation":
-			phase_badge_label.text = "⚠️ مرحلة التصعيد وحرب الإمداد"
+			phase_badge_label.text = "[ DEFCON 2 // التصعيد وحرب الإمداد ]"
 			phase_badge_label.add_theme_color_override("font_color", Color("#fde047"))
 		elif sim.battle_phase == "total_war":
-			phase_badge_label.text = "🚨 مرحلة الاشتباك الشامل والحسم"
+			phase_badge_label.text = "[ DEFCON 1 // الاشتباك الشامل والحسم ]"
 			phase_badge_label.add_theme_color_override("font_color", Color("#f87171"))
 
 	# 2. Update Commander Powers
@@ -170,18 +170,18 @@ func update(sim) -> void:
 		
 		btn.disabled = not (can_afford and is_ready)
 		if is_ready:
-			btn.text = "%s [%s] %d🛢️" % [spec["name"].split(" ")[0], spec["hotkey"], spec["cost"]]
+			btn.text = "%s [%s] %d BBL" % [spec["name"].split(" ")[0], spec["hotkey"], spec["cost"]]
 			btn.modulate = Color(1.0, 1.0, 1.0, 1.0) if can_afford else Color(0.7, 0.7, 0.7, 0.7)
 		else:
-			btn.text = "⏳ %01.0fs" % cd
+			btn.text = "CD: %01.0fs" % cd
 			btn.modulate = Color(0.6, 0.6, 0.6, 0.5)
 
 	# 3. Update Directive
 	if directive_panel != null:
 		if sim.active_directive.is_empty():
-			directive_title.text = "📋 الأوامر: بانتظار تعليمات القيادة الميدانية..."
+			directive_title.text = "[ DIRECTIVE // الأوامر ]: بانتظار تعليمات القيادة..."
 			directive_timer_label.text = ""
 		else:
 			var d = sim.active_directive
-			directive_title.text = "🎯 %s (+%d🛢️)" % [d["title"], d["reward_oil"]]
-			directive_timer_label.text = "⏳ %02d ث" % int(d["time_limit"])
+			directive_title.text = "[ ORDER ] %s (+%d BBL)" % [d["title"], d["reward_oil"]]
+			directive_timer_label.text = "[ %02d SEC ]" % int(d["time_limit"])

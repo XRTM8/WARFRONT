@@ -144,7 +144,7 @@ static func draw_bridge(canvas: CanvasItem, default_font: Font, b: Dictionary, p
 		# Interactive Rebuild Prompt
 		var pulse = 0.85 + sin(Time.get_ticks_msec() * 0.006) * 0.15
 		var prompt_col = Color(0.96, 0.8, 0.3, pulse)
-		canvas.draw_string(default_font, Vector2(b["x"] - 50, b["y"] + 6), "⚡ [انقر للإصلاح]", HORIZONTAL_ALIGNMENT_CENTER, -1, 11, prompt_col)
+		canvas.draw_string(default_font, Vector2(b["x"] - 50, b["y"] + 6), "[ REPAIR // انقر للإصلاح ]", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, prompt_col)
 
 static func draw_oil_rig(canvas: CanvasItem, rig: Dictionary) -> void:
 	var owner_col = Color("#6cc758") if rig["owner"] == "player" else (Color("#e5534b") if rig["owner"] == "enemy" else Color("#cbb986"))

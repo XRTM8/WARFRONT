@@ -106,7 +106,7 @@ func _build_pause_modal() -> void:
 	)
 	vbox.add_child(resume_btn)
 	
-	var restart_btn = _create_menu_button("🔄 إعادة تشغيل العملية", Color("#fde047"))
+	var restart_btn = _create_menu_button("[ RESTART // إعادة تشغيل العملية ]", Color("#fde047"))
 	restart_btn.pressed.connect(func():
 		hide_all()
 		if on_restart.is_valid():
@@ -114,24 +114,24 @@ func _build_pause_modal() -> void:
 	)
 	vbox.add_child(restart_btn)
 	
-	var theater_btn = _create_menu_button("🗺️ اختيار مسرح العمليات", Color("#38bdf8"))
+	var theater_btn = _create_menu_button("[ THEATER // اختيار مسرح العمليات ]", Color("#38bdf8"))
 	theater_btn.pressed.connect(func():
 		pause_panel.visible = false
 		theater_panel.visible = true
 	)
 	vbox.add_child(theater_btn)
 	
-	var help_btn = _create_menu_button("📖 دليل التحكم الميداني", Color("#e4e4e7"))
+	var help_btn = _create_menu_button("[ MANUAL // دليل التحكم الميداني ]", Color("#e4e4e7"))
 	help_btn.pressed.connect(func():
 		pause_panel.visible = false
 		help_panel.visible = true
 	)
 	vbox.add_child(help_btn)
 	
-	var audio_btn = _create_menu_button("🔊 تبديل الصوت (Mute/Unmute)", Color("#a1a1aa"))
+	var audio_btn = _create_menu_button("[ AUDIO // نظام الصوت الميداني ]", Color("#a1a1aa"))
 	audio_btn.pressed.connect(func():
 		audio_muted = not audio_muted
-		audio_btn.text = "🔇 الصوت معطل" if audio_muted else "🔊 الصوت مفعل"
+		audio_btn.text = "[ AUDIO: MUTED // الصوت معطل ]" if audio_muted else "[ AUDIO: ACTIVE // الصوت مفعل ]"
 		if on_toggle_audio.is_valid():
 			on_toggle_audio.call(audio_muted)
 	)
@@ -182,7 +182,7 @@ func _build_debrief_modal() -> void:
 	var sep2 = HSeparator.new()
 	vbox.add_child(sep2)
 	
-	var play_again_btn = _create_menu_button("⚔️ خوض المعركة مجدداً", Color("#73d65e"))
+	var play_again_btn = _create_menu_button("[ DEPLOY AGAIN // خوض المعركة مجدداً ]", Color("#73d65e"))
 	play_again_btn.pressed.connect(func():
 		hide_all()
 		if on_restart.is_valid():
@@ -190,7 +190,7 @@ func _build_debrief_modal() -> void:
 	)
 	vbox.add_child(play_again_btn)
 	
-	var change_th_btn = _create_menu_button("🗺️ اختيار مسرح آخر", Color("#38bdf8"))
+	var change_th_btn = _create_menu_button("[ CHANGE THEATER // مسرح عمليات آخر ]", Color("#38bdf8"))
 	change_th_btn.pressed.connect(func():
 		debrief_panel.visible = false
 		theater_panel.visible = true
@@ -203,12 +203,12 @@ func _update_debrief_stats(sim) -> void:
 		
 	var is_vic = sim.outcome == "victory"
 	if is_vic:
-		debrief_title_label.text = "🏆 انتصار ساحق // VICTORY"
+		debrief_title_label.text = "[ VICTORY // انتصار حاسم ]"
 		debrief_title_label.add_theme_color_override("font_color", Color("#73d65e"))
 		debrief_status_label.text = "تم سحق قيادة العدو وتأمين السيطرة التامة على المنشآت النفطية!"
 		debrief_status_label.add_theme_color_override("font_color", Color("#a3e635"))
 	else:
-		debrief_title_label.text = "💀 هزيمة ميدانية // DEFEAT"
+		debrief_title_label.text = "[ DEFEAT // انتكاسة تكتيكية ]"
 		debrief_title_label.add_theme_color_override("font_color", Color("#ef4444"))
 		debrief_status_label.text = "تم اختراق وتدمير المقر القيادي لقواتك وسقوط قطاع النفط!"
 		debrief_status_label.add_theme_color_override("font_color", Color("#fca5a5"))
@@ -231,13 +231,13 @@ func _update_debrief_stats(sim) -> void:
 				player_vets += 1
 				
 	var stat_rows = [
-		{ "label": "⏱️ مدة المعركة الميدانية", "val": time_str },
-		{ "label": "🛢️ إجمالي النفط المستخرج", "val": "%d برميل" % sim.player_oil_delivered },
-		{ "label": "🎖️ خسائر العدو المدمرة", "val": "%d آلية عسكرية" % player_kills },
-		{ "label": "🚛 شاحنات العدو المعترضة", "val": "%d شاحنة" % sim.enemy_trucks_destroyed },
-		{ "label": "🏭 حقول النفط المحررة", "val": "%d / %d آبار" % [owned_rigs, sim.map.get("rigs", []).size()] },
-		{ "label": "🌉 الجسور المفجرة والمرممة", "val": "%d جسور" % sim.bridges_destroyed_by_player },
-		{ "label": "⭐ الضباط والمخضرمون", "val": "%d وحدات نخبة" % player_vets }
+		{ "label": "[TIME] مدة الاشتباك", "val": time_str },
+		{ "label": "[SUPPLY] إجمالي الوقود المستخرج", "val": "%d BBL" % sim.player_oil_delivered },
+		{ "label": "[HOSTILES] آليات العدو المدمرة", "val": "%d آليات" % player_kills },
+		{ "label": "[CONVOYS] قوافل العدو المعترضة", "val": "%d شاحنات" % sim.enemy_trucks_destroyed },
+		{ "label": "[OILFIELDS] حقول النفط المحررة", "val": "%d / %d آبار" % [owned_rigs, sim.map.get("rigs", []).size()] },
+		{ "label": "[BRIDGES] الجسور المفجرة والمرممة", "val": "%d جسور" % sim.bridges_destroyed_by_player },
+		{ "label": "[OFFICERS] الضباط والمخضرمون", "val": "%d رتب نخبة" % player_vets }
 	]
 	
 	for row in stat_rows:
@@ -279,7 +279,7 @@ func _build_theater_modal() -> void:
 	theater_panel.add_child(vbox)
 	
 	var title = Label.new()
-	title.text = "🗺️ اختيار مسرح العمليات الاستراتيجي"
+	title.text = "[ THEATERS // اختيار مسرح العمليات الاستراتيجي ]"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color("#38bdf8"))
 	title.add_theme_font_size_override("font_size", 14)
@@ -349,7 +349,7 @@ func _build_help_modal() -> void:
 	help_panel.add_child(vbox)
 	
 	var title = Label.new()
-	title.text = "📖 دليل التحكم الميداني (Field Manual)"
+	title.text = "[ FIELD MANUAL // دليل العمليات الميدانية ]"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color("#ffd659"))
 	title.add_theme_font_size_override("font_size", 14)
@@ -359,14 +359,15 @@ func _build_help_modal() -> void:
 	vbox.add_child(sep)
 	
 	var tips = [
-		"🖱️ زر الفأرة الأيسر: سحب لتحديد مجموعة قوات، أو النقر على جسر مدمر لإصلاحه.",
-		"🎯 زر الفأرة الأيمن: أمر تحرك تكتيكي، أو أمر هجوم مباشر على قوات ومقر العدو.",
-		"⌨️ المفاتيح 1 إلى 7: تدريب ونشر القوات والدبابات والمروحيات والأبراج فوراً.",
-		"⌨️ المفتاح B: إصلاح أسرع جسر مدمر لاستعادة تدفق قوافل شاحنات النفط.",
-		"⌨️ المفتاح Q: تحديد كافة القوات المقاتلة في الميدان بضغطة واحدة.",
-		"⌨️ المفتاح H: توجيه الكاميرا فوراً إلى مقر القيادة العامة.",
-		"🔍 عجلة الفأرة / W A S D: التكبير والتصغير وتحريك زاوية الرؤية التكتيكية.",
-		"⏸️ المفتاح ESC: إيقاف المعركة مؤقتاً والوصول إلى لوحة التحكم المتقدمة."
+		"[L-CLICK] زر الفأرة الأيسر: سحب لتحديد مجموعة قوات، أو النقر على جسر مدمر لإصلاحه.",
+		"[R-CLICK] زر الفأرة الأيمن: أمر تحرك تكتيكي، أمر هجوم مباشر، أو توجيه متعاقب بالـ Shift.",
+		"[KEYS 1-7] تدريب ونشر القوات والدبابات والمروحيات والمنشآت الميدانية.",
+		"[KEY B] إصلاح أسرع جسر مدمر لاستعادة تدفق قوافل شاحنات النفط.",
+		"[KEY Q] تحديد كافة القوات المقاتلة في الميدان بضغطة واحدة.",
+		"[KEY H] توجيه الكاميرا فوراً إلى مقر القيادة العامة.",
+		"[KEYS F / T] تفعيل قدرات الوحدات النخبة (قذيفة حارقة، صدمة زلزالية، صواريخ، ألغام).",
+		"[PAN / ZOOM] عجلة الفأرة وأزرار W A S D للتحريك وزوم الرؤية التكتيكية.",
+		"[KEY ESC] إيقاف المعركة مؤقتاً والوصول إلى لوحة التحكم والعمليات."
 	]
 	
 	for tip in tips:

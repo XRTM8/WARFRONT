@@ -700,7 +700,7 @@ static func deploy_landmine_at(sim, faction: String, pos: Vector2) -> bool:
 	})
 	sim.spawn_particle("ring", pos.x, pos.y, 0.0, 0.0, 4.0, 26.0, 0.3, Color("#22c55e"))
 	sim.sound_triggered.emit("capture")
-	sim.spawn_floating_text(pos.x, pos.y - 14.0, "⚡ لغم مضاد للدروع نشط", Color("#84cc16"), 1.1)
+	sim.spawn_floating_text(pos.x, pos.y - 14.0, "[ AT-MINE ARMED // لغم الدروع نشط ]", Color("#84cc16"), 1.1)
 	return true
 
 static func execute_unit_ability(sim, u: Dictionary, target_pos: Vector2) -> bool:
@@ -760,7 +760,7 @@ static func execute_unit_ability(sim, u: Dictionary, target_pos: Vector2) -> boo
 			"faction": u["faction"]
 		})
 		sim.spawn_burst(target_pos.x, target_pos.y, "fire", 22, Color("#ea580c"), 110.0)
-		sim.spawn_floating_text(u["x"], u["y"] - 22.0, "🔥 قذيفة حارقة!", Color("#f97316"), 1.2)
+		sim.spawn_floating_text(u["x"], u["y"] - 22.0, "[ INCENDIARY SHELL // قذيفة حارقة ]", Color("#f97316"), 1.2)
 		return true
 		
 	elif kind == "behemoth":
@@ -771,7 +771,7 @@ static func execute_unit_ability(sim, u: Dictionary, target_pos: Vector2) -> boo
 		sim.spawn_particle("ring", target_pos.x, target_pos.y, 0.0, 0.0, 16.0, 110.0, 0.45, Color("#ef4444"))
 		sim.add_crater(target_pos.x, target_pos.y, 22.0, false)
 		sim.spawn_burst(target_pos.x, target_pos.y, "fire", 26, Color("#ff4444"), 135.0)
-		sim.spawn_floating_text(target_pos.x, target_pos.y - 28.0, "⚡ صدمة زلزالية ساحقة!", Color("#ef4444"), 1.5)
+		sim.spawn_floating_text(target_pos.x, target_pos.y - 28.0, "[ SEISMIC IMPACT // صدمة زلزالية ]", Color("#ef4444"), 1.5)
 		
 		var opp = "enemy" if u["faction"] == "player" else "player"
 		for target in sim.units:
@@ -785,7 +785,7 @@ static func execute_unit_ability(sim, u: Dictionary, target_pos: Vector2) -> boo
 	elif kind == "helicopter":
 		# Hydra Rocket Salvo (4 spiraling micro-missiles)
 		sim.sound_triggered.emit("hydra_salvo")
-		sim.spawn_floating_text(u["x"], u["y"] - 22.0, "🚀 غارة صواريخ هايدرا!", Color("#38bdf8"), 1.25)
+		sim.spawn_floating_text(u["x"], u["y"] - 22.0, "[ HYDRA VOLLEY // صواريخ هايدرا ]", Color("#38bdf8"), 1.25)
 		var start_p = Vector2(u["x"], u["y"])
 		var dir = (target_pos - start_p).normalized()
 		var dist = start_p.distance_to(target_pos)

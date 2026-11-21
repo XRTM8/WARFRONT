@@ -269,7 +269,7 @@ static func update_airdrop_crates(sim, dt: float) -> void:
 				sim.camera_trauma = min(1.0, sim.camera_trauma + 0.18)
 				sim.spawn_burst(crate["x"], crate["y"], "smoke", 14, Color("#dcd3c1"), 65.0)
 				sim.spawn_particle("ring", crate["x"], crate["y"], 0.0, 0.0, 6.0, 38.0, 0.35, Color("#fbbf24"))
-				sim.spawn_floating_text(crate["x"], crate["y"] - 18.0, "📦 هبوط الإنزال الجوي!", Color("#ffd700"), 1.2)
+				sim.spawn_floating_text(crate["x"], crate["y"] - 18.0, "[ AIRDROP TOUCHDOWN // وصول الإنزال ]", Color("#ffd700"), 1.2)
 		else:
 			crate["life"] -= dt
 			if crate["life"] <= 0.0:
@@ -304,25 +304,25 @@ static func update_airdrop_crates(sim, dt: float) -> void:
 									u["hp"] = u["maxHp"]
 									sim.award_unit_xp(u, 120.0)
 									sim.spawn_particle("ring", u["x"], u["y"], 0.0, 0.0, 8.0, 36.0, 0.3, Color("#38bdf8"))
-						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "🔧 تم تفعيل نانو الصيانة الفورية!", Color("#38bdf8"), 1.5)
+						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "[ NANO-REPAIR // صيانة ميدانية شاملة ]", Color("#38bdf8"), 1.5)
 					elif crate["type"] == "armor_reinforce":
 						# Spawn an elite battle tank right at the drop zone!
 						var t = sim.spawn_unit("player", "tank", crate["x"], crate["y"])
 						t["rank"] = 2
 						t["hp"] = t["maxHp"]
-						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "🛡️ وصول دعم مدرع من النخبة!", Color("#84cc16"), 1.5)
+						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "[ ARMOR SUPPORT // تعزيز مدرع نخبة ]", Color("#84cc16"), 1.5)
 					else:
 						# Fuel cache
 						var oil_rew = spec.get("oil", 240)
 						sim.player_oil += oil_rew
 						sim.player_oil_delivered += oil_rew
-						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "+%d 🛢️ مخزون وقود استراتيجي!" % oil_rew, Color("#facc15"), 1.5)
+						sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "[ +%d BBL // تأمين وقود استراتيجي ]" % oil_rew, Color("#facc15"), 1.5)
 				else:
 					# Enemy captured
 					sim.enemy_oil += 180
 					sim.sound_triggered.emit("capture")
 					sim.push_event("airdrop_denied", "warn")
-					sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "⚠️ العدو استولى على صندوق الإمداد!", Color("#ef4444"), 1.5)
+					sim.spawn_floating_text(crate["x"], crate["y"] - 25.0, "[ AIRDROP INTERCEPTED // العدو صادر الإمداد ]", Color("#ef4444"), 1.5)
 					
 				sim.spawn_burst(crate["x"], crate["y"], "spark", 12, Color("#fbbf24"), 80.0)
 				sim.airdrop_crates.remove_at(i)
@@ -368,7 +368,7 @@ static func _update_salvage(sim, dt: float) -> void:
 					if u["faction"] == "player":
 						sim.player_oil += c["oil"]
 						sim.player_oil_delivered += c["oil"]
-						sim.spawn_floating_text(c["x"], c["y"] - 14.0, "+%d 🛢️ غنائم نفط" % c["oil"], Color("#facc15"), 0.95)
+						sim.spawn_floating_text(c["x"], c["y"] - 14.0, "[ +%d BBL RECOVERED // استرداد وقود ]" % c["oil"], Color("#facc15"), 0.95)
 						sim.sound_triggered.emit("salvage_pickup")
 						sim.push_event("salvage_collected", "good")
 						notify_directive_progress(sim, "ambush_truck")
@@ -418,6 +418,6 @@ static func notify_directive_progress(sim, directive_type: String) -> void:
 			sim.sound_triggered.emit("promotion")
 			sim.push_event("directive_complete", "good")
 			var phq = sim.map["playerHQ"]
-			sim.spawn_floating_text(phq["x"], phq["y"] - 65.0, "🏆 مكافأة الأوامر: +%d 🛢️" % rew, Color("#ffd700"), 1.25)
+			sim.spawn_floating_text(phq["x"], phq["y"] - 65.0, "[ DIRECTIVE BOUNTY // مكافأة القيادة: +%d BBL ]" % rew, Color("#ffd700"), 1.25)
 			sim.active_directive.clear()
 			sim.directive_cycle_timer = 24.0

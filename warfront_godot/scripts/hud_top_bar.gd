@@ -56,8 +56,9 @@ func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> v
 	log_box.add_child(oil_box)
 	
 	var oil_icon = Label.new()
-	oil_icon.text = "🛢️"
-	oil_icon.add_theme_font_size_override("font_size", 20)
+	oil_icon.text = "[BBL]"
+	oil_icon.add_theme_color_override("font_color", Color("#f59e0b"))
+	oil_icon.add_theme_font_size_override("font_size", 12)
 	oil_box.add_child(oil_icon)
 	
 	var oil_vbox = VBoxContainer.new()
@@ -169,7 +170,7 @@ func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> v
 	mom_panel.add_child(mom_box)
 	
 	momentum_label = Label.new()
-	momentum_label.text = "⚡ الحماسة القتالية"
+	momentum_label.text = "[ COMBAT MOMENTUM // زحف الحماسة ]"
 	momentum_label.add_theme_color_override("font_color", Color("#f59e0b"))
 	momentum_label.add_theme_font_size_override("font_size", 10)
 	mom_box.add_child(momentum_label)
@@ -251,8 +252,8 @@ func build_top_bar(parent: CanvasLayer, on_pause_cb: Callable = Callable()) -> v
 
 	if on_pause_cb.is_valid():
 		var pause_btn = Button.new()
-		pause_btn.text = "⏸️ [ESC]"
-		pause_btn.custom_minimum_size = Vector2(70, 28)
+		pause_btn.text = "[ ESC // إيقاف ]"
+		pause_btn.custom_minimum_size = Vector2(85, 28)
 		pause_btn.add_theme_font_size_override("font_size", 10)
 		var p_style = StyleBoxFlat.new()
 		p_style.bg_color = Color(0.12, 0.14, 0.11, 0.95)
@@ -295,7 +296,7 @@ func update(sim) -> void:
 				if u["truckState"] == "stranded":
 					stranded += 1
 		if stranded > 0:
-			trucks_val_label.text = "%d (⚠️ %d عالق)" % [trucks_count, stranded]
+			trucks_val_label.text = "%d (ALERT: %d STRANDED)" % [trucks_count, stranded]
 			trucks_val_label.add_theme_color_override("font_color", Color("#f59e0b"))
 		else:
 			trucks_val_label.text = str(trucks_count)
@@ -338,8 +339,8 @@ func update(sim) -> void:
 	if momentum_bar != null:
 		momentum_bar.value = sim.combat_momentum
 		if sim.combat_surge_active:
-			momentum_label.text = "🔥 عاصفة القتال نشطة! (+20% ضرر)"
+			momentum_label.text = "[ TACTICAL SURGE ACTIVE // عاصفة القتال: +20% DMG ]"
 			momentum_label.add_theme_color_override("font_color", Color("#fbbf24"))
 		else:
-			momentum_label.text = "⚡ الحماسة القتالية (%d%%)" % int(round(sim.combat_momentum))
+			momentum_label.text = "[ COMBAT MOMENTUM // زحف الحماسة: %d%% ]" % int(round(sim.combat_momentum))
 			momentum_label.add_theme_color_override("font_color", Color("#f59e0b"))

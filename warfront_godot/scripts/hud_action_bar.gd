@@ -34,8 +34,8 @@ func build_action_bar(parent: Control, on_train: Callable, on_rebuild: Callable,
 	tab_bar.add_theme_constant_override("separation", 4)
 	root_vbox.add_child(tab_bar)
 
-	tab_units_btn = _create_tab_button("🪖 تشكيلات القوات الميدانية [1-6]", true)
-	tab_buildings_btn = _create_tab_button("🏗️ الإنشاءات والقواعد الهندسية [F1-F6]", false)
+	tab_units_btn = _create_tab_button("[ UNITS // القوات الميدانية 1-6 ]", true)
+	tab_buildings_btn = _create_tab_button("[ BASE // المنشآت الهندسية F1-F6 ]", false)
 	tab_bar.add_child(tab_units_btn)
 	tab_bar.add_child(tab_buildings_btn)
 
@@ -329,7 +329,7 @@ func _create_tactical_card(card: Dictionary, btn_dict: Dictionary, lbl_dict: Dic
 	header_box.add_child(spacer)
 
 	var cost_lbl = Label.new()
-	cost_lbl.text = "%d 🛢️" % card["cost"]
+	cost_lbl.text = "%d BBL" % card["cost"]
 	cost_lbl.add_theme_color_override("font_color", Color("#fde047"))
 	cost_lbl.add_theme_font_size_override("font_size", 10)
 	header_box.add_child(cost_lbl)

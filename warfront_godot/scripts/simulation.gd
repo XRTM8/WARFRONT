@@ -259,7 +259,7 @@ func add_combat_momentum(amount: float) -> void:
 		push_event("surge_active", "good")
 		var phq = map.get("playerHQ", {})
 		if not phq.is_empty():
-			spawn_floating_text(phq["x"], phq["y"] - 55.0, "⚡ عاصفة القتال نشطة! هجوم شامل! ⚡", Color("#f59e0b"), 2.2)
+			spawn_floating_text(phq["x"], phq["y"] - 55.0, "[ TACTICAL SURGE // عاصفة القتال: هجوم شامل ]", Color("#f59e0b"), 2.2)
 
 func record_player_kill(kind: String, pos: Vector2) -> void:
 	var now = sim_time
@@ -269,16 +269,16 @@ func record_player_kill(kind: String, pos: Vector2) -> void:
 		
 	var count = recent_player_kills.size()
 	if count == 2:
-		spawn_floating_text(pos.x, pos.y - 28.0, "🎖️ ضربة مزدوجة! DOUBLE KILL", Color("#f59e0b"), 1.4)
+		spawn_floating_text(pos.x, pos.y - 28.0, "[ DOUBLE KILL // تصفية مزدوجة ]", Color("#f59e0b"), 1.4)
 		sound_triggered.emit("multi_kill")
 		add_combat_momentum(16.0)
 	elif count >= 3:
-		spawn_floating_text(pos.x, pos.y - 36.0, "🔥 إبادة ثلاثية! TRIPLE KILL", Color("#ef4444"), 1.8)
+		spawn_floating_text(pos.x, pos.y - 36.0, "[ TRIPLE KILL // إبادة ثلاثية ]", Color("#ef4444"), 1.8)
 		sound_triggered.emit("multi_kill")
 		add_combat_momentum(24.0)
 	else:
 		if kind == "behemoth":
-			spawn_floating_text(pos.x, pos.y - 36.0, "👑 صيد ثمين: تدمير العملاق!", Color("#fbbf24"), 2.0)
+			spawn_floating_text(pos.x, pos.y - 36.0, "[ TARGET NEUTRALIZED // تحييد العملاق ]", Color("#fbbf24"), 2.0)
 			sound_triggered.emit("multi_kill")
 			add_combat_momentum(25.0)
 		elif kind == "tank" or kind == "artillery":

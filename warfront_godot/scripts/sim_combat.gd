@@ -32,8 +32,8 @@ static func award_unit_xp(sim, unit: Dictionary, amount: float) -> bool:
 	unit["promoFlash"] = 0.7
 	sim.spawn_particle("ring", unit["x"], unit["y"], 0.0, 0.0, unit["radius"], unit["radius"] + 28.0, 0.42, Color("#ffd659"))
 	
-	var stars = "★".repeat(target_rank)
-	sim.spawn_floating_text(unit["x"], unit["y"] - unit["radius"] - 16.0, "%s %s" % [stars, next_rank_spec["badgeLabel"]], Color("#ffd659"), 1.5)
+	var rank_tag = "[R-%d]" % target_rank
+	sim.spawn_floating_text(unit["x"], unit["y"] - unit["radius"] - 16.0, "%s %s" % [rank_tag, next_rank_spec["badgeLabel"]], Color("#ffd659"), 1.5)
 	sim.spawn_burst(unit["x"], unit["y"], "spark", 10, Color("#ffe37d"), 75.0)
 	
 	if unit["faction"] == "player":
@@ -173,7 +173,7 @@ static func damage_unit(sim, u: Dictionary, amount: float, attacker: Variant = n
 	
 	# Floating damage number with critical hit flair
 	if amount >= 40.0:
-		sim.spawn_floating_text(u["x"], u["y"] - u["radius"] - 8.0, "💥 -%d" % int(round(amount)), Color("#ef4444"), 0.85)
+		sim.spawn_floating_text(u["x"], u["y"] - u["radius"] - 8.0, "-[%d CRIT]" % int(round(amount)), Color("#ef4444"), 0.85)
 		sim.spawn_burst(u["x"], u["y"], "spark", 7, Color("#fde047"), 85.0)
 	else:
 		sim.spawn_floating_text(u["x"], u["y"] - u["radius"] - 6.0, "-%d" % int(round(amount)), Color("#fca5a5"), 0.7)
@@ -211,7 +211,7 @@ static func damage_unit(sim, u: Dictionary, amount: float, attacker: Variant = n
 				})
 				sim.spawn_particle("ring", u["x"], u["y"], 0.0, 0.0, 10.0, 65.0, 0.35, Color("#ffffff"))
 				sim.camera_trauma = min(1.0, sim.camera_trauma + 0.35)
-				sim.spawn_floating_text(u["x"], u["y"] - 22.0, "💥 انفجار مخزن الذخائر!", Color("#f59e0b"), 1.25)
+				sim.spawn_floating_text(u["x"], u["y"] - 22.0, "[ AMMO DETONATION // تفجير ذخائر ]", Color("#f59e0b"), 1.25)
 		
 		# Secondary Chain Explosions for volatile vehicles
 		if is_truck or (is_heavy and randf() < 0.35):
@@ -320,7 +320,7 @@ static func update_flying_turrets(sim, dt: float) -> void:
 			sim.spawn_burst(ix, iy, "debris", 12, Color("#3f3f46"), 95.0)
 			sim.spawn_burst(ix, iy, "spark", 8, Color("#facc15"), 75.0)
 			sim.spawn_particle("ring", ix, iy, 0.0, 0.0, 6.0, 36.0, 0.25, Color("#f59e0b"))
-			sim.spawn_floating_text(ix, iy - 10.0, "💥 سقوط البرج!", Color("#fbbf24"), 0.9)
+			sim.spawn_floating_text(ix, iy - 10.0, "[ TURRET IMPACT // ارتطام البرج ]", Color("#fbbf24"), 0.9)
 			
 			# Radial blast damage to nearby enemy units
 			var opp_faction = "enemy" if ft.get("faction") == "player" else "player"
@@ -380,7 +380,7 @@ static func update_landmines(sim, dt: float) -> void:
 					
 					u["stunTimer"] = lm.get("stun_duration", 4.5)
 					u["recoil"] = 8.0
-					sim.spawn_floating_text(u["x"], u["y"] - u["radius"] - 14.0, "💥 انفجار لغم! شلل الحركة", Color("#ef4444"), 1.25)
+					sim.spawn_floating_text(u["x"], u["y"] - u["radius"] - 14.0, "[ MINE DETONATION // شلل بالحركة ]", Color("#ef4444"), 1.25)
 					damage_unit(sim, u, lm["damage"])
 					break
 					
