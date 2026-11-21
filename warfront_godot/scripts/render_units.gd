@@ -2,6 +2,8 @@ class_name RenderUnits
 extends RefCounted
 
 const Constants = preload("res://scripts/constants.gd")
+const RenderNaval = preload("res://scripts/render_naval.gd")
+const RenderAircraft = preload("res://scripts/render_aircraft.gd")
 
 static func draw_unit(canvas: CanvasItem, default_font: Font, u: Dictionary, sim_time: float) -> void:
 	var pos = Vector2(round(u["x"]), round(u["y"]))
@@ -41,13 +43,21 @@ static func draw_unit(canvas: CanvasItem, default_font: Font, u: Dictionary, sim
 		# Subtle tactical ground disc
 		canvas.draw_arc(pos, r * 0.9, 0, TAU, 16, Color(0.66, 0.94, 0.49, 0.25), 1.0)
 
-	# 2. Ground drop shadow
+	# 2. Check for Specialized Naval or Air Units
+	if RenderNaval.draw_naval_unit(canvas, u, pos, body_main, sim_time):
+		draw_unit_overlay(canvas, default_font, u, pos, is_player)
+		return
+	if RenderAircraft.draw_air_or_special_unit(canvas, u, pos, body_main, sim_time):
+		draw_unit_overlay(canvas, default_font, u, pos, is_player)
+		return
+
+	# 3. Ground drop shadow
 	if u["kind"] == "helicopter":
 		canvas.draw_circle(pos + Vector2(14, 20), 14.0, Color(0, 0, 0, 0.28))
 	else:
 		canvas.draw_circle(pos + Vector2(2, 4), u["radius"] * 0.82, Color(0, 0, 0, 0.35))
 
-	# 3. Unit Chassis (Rotated by Movement Heading)
+	# 4. Unit Chassis (Rotated by Movement Heading)
 	var chassis_angle = u["angle"] if u["kind"] != "turret" else 0.0
 	canvas.draw_set_transform(pos, chassis_angle, Vector2.ONE)
 
@@ -329,7 +339,10 @@ static func draw_unit(canvas: CanvasItem, default_font: Font, u: Dictionary, sim
 		p_col.a = min(1.0, u["promoFlash"] / 0.7)
 		canvas.draw_arc(pos, u["radius"] + 9.0 + (1.0 - u["promoFlash"] / 0.7) * 8.0, 0, TAU, 24, p_col, 2.5)
 
-	# 7. Unit HP Bar & XP Bar
+	# 7. Unit HP Bar & XP Bar & Insignia
+	draw_unit_overlay(canvas, default_font, u, pos, is_player)
+
+static func draw_unit_overlay(canvas: CanvasItem, default_font: Font, u: Dictionary, pos: Vector2, is_player: bool) -> void:
 	if u["hp"] < u["maxHp"] or u["selected"]:
 		var pct = max(0.0, u["hp"] / u["maxHp"])
 		var bw = 26.0
@@ -343,7 +356,7 @@ static func draw_unit(canvas: CanvasItem, default_font: Font, u: Dictionary, sim
 			canvas.draw_rect(Rect2(pos.x - bw / 2.0 - 1, pos.y - u["radius"] - 6, bw + 2, 3), Color(0.05, 0.06, 0.04, 0.85))
 			canvas.draw_rect(Rect2(pos.x - bw / 2.0, pos.y - u["radius"] - 5, round(bw * xp_pct), 1.5), Color("#f2be42"))
 
-	# 8. Military Insignia Rank Badge (Chevrons / Gold Star)
+	# Military Insignia Rank Badge (Chevrons / Gold Star)
 	if u["rank"] > 0:
 		draw_rank_badge(canvas, default_font, pos.x + u["radius"] + 2, pos.y - u["radius"] - 10, u["rank"])
 

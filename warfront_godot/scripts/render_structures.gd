@@ -2,6 +2,7 @@ class_name RenderStructures
 extends RefCounted
 
 const Constants = preload("res://scripts/constants.gd")
+const RenderStructuresProd = preload("res://scripts/render_structures_prod.gd")
 
 static func draw_water_ripples(canvas: CanvasItem, sim_map: Dictionary, foam_color: Color, sim_time: float) -> void:
 	var foam = Color(foam_color.r, foam_color.g, foam_color.b, 0.35)
@@ -344,7 +345,9 @@ static func draw_structure(canvas: CanvasItem, default_font: Font, s: Dictionary
 	# 3. Operational Structure Visuals
 	var base_col = Color.WHITE if flash else Color("#22231e")
 	
-	if s["kind"] == "war_factory":
+	if RenderStructuresProd.draw_production_structure(canvas, s, sim_time, pal):
+		pass
+	elif s["kind"] == "war_factory":
 		# Heavy armored factory building
 		canvas.draw_rect(Rect2(pos.x - w * 0.5, pos.y - h * 0.5, w, h), base_col)
 		canvas.draw_rect(Rect2(pos.x - w * 0.5, pos.y - h * 0.5, w, h), fac_col, false, 2.5)

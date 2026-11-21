@@ -68,7 +68,14 @@ static func spawn_unit(sim, faction: String, kind: String, x: float, y: float, s
 		"truckState": "idle",
 		"roadPath": [],
 		"roadPathIndex": 0,
-		"assignedRigId": -1
+		"assignedRigId": -1,
+		"is_air": spec.get("is_air", false) or kind == "helicopter",
+		"altitude": spec.get("altitude", 36.0 if kind == "helicopter" else 0.0),
+		"is_naval": spec.get("is_naval", false),
+		"is_aa": spec.get("is_aa", false),
+		"isIndirect": spec.get("isIndirect", false),
+		"category": spec.get("category", "war_factory"),
+		"captureBonus": spec.get("captureBonus", 1.0)
 	}
 	sim.next_unit_id += 1
 	sim.units.push_back(unit)

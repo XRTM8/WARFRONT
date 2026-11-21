@@ -76,7 +76,7 @@ func _ready() -> void:
 	add_child(vig_canvas)
 
 func _on_train_requested(kind: String) -> void:
-	sim.train_player_unit(kind)
+	sim.queue_unit(kind, "player")
 
 func _on_place_structure_requested(kind: String) -> void:
 	sim.build_mode = "none" if sim.build_mode == kind else kind

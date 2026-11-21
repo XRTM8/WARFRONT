@@ -50,13 +50,15 @@ static func fire_projectile(sim, attacker: Dictionary, target_pos: Vector2) -> v
 		pr_kind = "shell"
 		sim.sound_triggered.emit("behemoth_cannon")
 		sim.camera_trauma = min(1.0, sim.camera_trauma + 0.14)
-	elif attacker["kind"] == "tank":
+	elif attacker["kind"] in ["tank", "river_gunboat", "infantry_mortar"]:
 		pr_kind = "shell"
 		sim.sound_triggered.emit("cannon")
-	elif attacker["kind"] == "artillery":
-		pr_kind = "shell"
-		sim.sound_triggered.emit("cannon")
-	elif attacker["kind"] == "helicopter":
+	elif attacker["kind"] in ["artillery", "missile_corvette", "sam_launcher", "infantry_at", "strike_bomber"]:
+		pr_kind = "rocket"
+		sim.sound_triggered.emit("shot")
+		if attacker["kind"] == "strike_bomber":
+			sim.camera_trauma = min(1.0, sim.camera_trauma + 0.18)
+	elif attacker["kind"] in ["helicopter", "jet_interceptor", "patrol_boat"]:
 		pr_kind = "bullet"
 		sim.sound_triggered.emit("rapid_fire")
 	else:

@@ -17,24 +17,42 @@ static func can_place_structure(sim, kind: String, x: float, y: float, faction: 
 	if y - rad < 40.0 or y + rad > map["height"] - 40.0:
 		return false
 		
-	# 2. Land tile check (cannot build inside water)
+	# 2. Land tile check (cannot build inside water unless shipyard on shoreline)
 	var ts = Constants.TILE_SIZE
 	var col = int(x / ts)
 	var row = int(y / ts)
 	if col < 0 or col >= map["cols"] or row < 0 or row >= map["rows"]:
 		return false
 	var tile = map["tiles"][row * map["cols"] + col]
-	if tile == "water":
-		return false
-		
-	# Check 4 footprint corners
-	for ox in [-rad * 0.7, rad * 0.7]:
-		for oy in [-rad * 0.7, rad * 0.7]:
-			var c_idx = int((x + ox) / ts)
-			var r_idx = int((y + oy) / ts)
-			if c_idx >= 0 and c_idx < map["cols"] and r_idx >= 0 and r_idx < map["rows"]:
-				if map["tiles"][r_idx * map["cols"] + c_idx] == "water":
-					return false
+	
+	if spec.get("shore_only", false):
+		# Must be on land tile, but immediately adjacent to water
+		if tile == "water":
+			return false
+		var touches_water = false
+		for dr in [-1, 0, 1]:
+			for dc in [-1, 0, 1]:
+				var nc = col + dc
+				var nr = row + dr
+				if nc >= 0 and nc < map["cols"] and nr >= 0 and nr < map["rows"]:
+					if map["tiles"][nr * map["cols"] + nc] == "water":
+						touches_water = true
+						break
+			if touches_water:
+				break
+		if not touches_water:
+			return false
+	else:
+		if tile == "water":
+			return false
+		# Check 4 footprint corners
+		for ox in [-rad * 0.7, rad * 0.7]:
+			for oy in [-rad * 0.7, rad * 0.7]:
+				var c_idx = int((x + ox) / ts)
+				var r_idx = int((y + oy) / ts)
+				if c_idx >= 0 and c_idx < map["cols"] and r_idx >= 0 and r_idx < map["rows"]:
+					if map["tiles"][r_idx * map["cols"] + c_idx] == "water":
+						return false
 
 	# 3. Overlap check with HQs
 	for hq in [map["playerHQ"], map["enemyHQ"]]:
@@ -61,8 +79,8 @@ static func can_place_structure(sim, kind: String, x: float, y: float, faction: 
 		in_range = true
 	else:
 		for s in sim.structures:
-			if s["faction"] == faction and s["status"] == "ready" and s["kind"] == "war_factory":
-				if Vector2(x, y).distance_to(Vector2(s["x"], s["y"])) <= 380.0:
+			if s["faction"] == faction and s["status"] == "ready" and s["kind"] in ["war_factory", "barracks", "airfield", "shipyard", "missile_plant"]:
+				if Vector2(x, y).distance_to(Vector2(s["x"], s["y"])) <= 440.0:
 					in_range = true
 					break
 

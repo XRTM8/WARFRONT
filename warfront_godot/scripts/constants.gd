@@ -206,10 +206,180 @@ const UNIT_SPECS: Dictionary = {
 		"damage": 26.0,
 		"fireRate": 0.45,
 		"bridgeBonus": 0.8,
+	},
+	"infantry_rifle": {
+		"kind": "infantry_rifle",
+		"hotkey": "",
+		"cost": 40,
+		"hp": 65.0,
+		"speed": 105.0,
+		"radius": 9.0,
+		"range": 140.0,
+		"damage": 8.0,
+		"fireRate": 0.28,
+		"bridgeBonus": 0.5,
+		"category": "barracks",
+		"captureBonus": 2.0,
+		"name": "فصيل بنادق مشاة",
+		"role_tag": "سيطرة سريعة",
+		"role_color": Color("#84cc16"),
+		"build_time": 1.8
+	},
+	"infantry_at": {
+		"kind": "infantry_at",
+		"hotkey": "",
+		"cost": 85,
+		"hp": 75.0,
+		"speed": 90.0,
+		"radius": 10.0,
+		"range": 190.0,
+		"damage": 52.0,
+		"fireRate": 1.6,
+		"bridgeBonus": 0.6,
+		"category": "barracks",
+		"vsArmorBonus": 1.5,
+		"name": "فريق صواريخ RPG",
+		"role_tag": "مضاد دروع",
+		"role_color": Color("#ef4444"),
+		"build_time": 2.4
+	},
+	"infantry_mortar": {
+		"kind": "infantry_mortar",
+		"hotkey": "",
+		"cost": 110,
+		"hp": 70.0,
+		"speed": 75.0,
+		"radius": 10.0,
+		"range": 340.0,
+		"damage": 65.0,
+		"fireRate": 2.4,
+		"bridgeBonus": 1.0,
+		"category": "barracks",
+		"isIndirect": true,
+		"name": "طاقم هاون ثقيل",
+		"role_tag": "قصف غير مباشر",
+		"role_color": Color("#f59e0b"),
+		"build_time": 3.0
+	},
+	"jet_interceptor": {
+		"kind": "jet_interceptor",
+		"hotkey": "",
+		"cost": 230,
+		"hp": 210.0,
+		"speed": 235.0,
+		"radius": 16.0,
+		"range": 240.0,
+		"damage": 38.0,
+		"fireRate": 0.32,
+		"bridgeBonus": 0.0,
+		"category": "airfield",
+		"is_air": true,
+		"altitude": 48.0,
+		"name": "مقاتلة اعتراضية",
+		"role_tag": "سيادة جوية",
+		"role_color": Color("#38bdf8"),
+		"build_time": 4.5
+	},
+	"strike_bomber": {
+		"kind": "strike_bomber",
+		"hotkey": "",
+		"cost": 280,
+		"hp": 280.0,
+		"speed": 180.0,
+		"radius": 18.0,
+		"range": 180.0,
+		"damage": 130.0,
+		"fireRate": 2.8,
+		"bridgeBonus": 0.0,
+		"category": "airfield",
+		"is_air": true,
+		"altitude": 54.0,
+		"name": "قاذفة هجوم أرضي",
+		"role_tag": "قصف ثقيل",
+		"role_color": Color("#f97316"),
+		"build_time": 5.5
+	},
+	"patrol_boat": {
+		"kind": "patrol_boat",
+		"hotkey": "",
+		"cost": 95,
+		"hp": 160.0,
+		"speed": 130.0,
+		"radius": 15.0,
+		"range": 190.0,
+		"damage": 18.0,
+		"fireRate": 0.36,
+		"bridgeBonus": 1.0,
+		"category": "shipyard",
+		"is_naval": true,
+		"name": "زورق دورية نهري",
+		"role_tag": "دورية وسرعة",
+		"role_color": Color("#06b6d4"),
+		"build_time": 2.5
+	},
+	"missile_corvette": {
+		"kind": "missile_corvette",
+		"hotkey": "",
+		"cost": 175,
+		"hp": 320.0,
+		"speed": 95.0,
+		"radius": 18.0,
+		"range": 270.0,
+		"damage": 58.0,
+		"fireRate": 1.4,
+		"bridgeBonus": 1.2,
+		"category": "shipyard",
+		"is_naval": true,
+		"name": "كورفيت صواريخ",
+		"role_tag": "صواريخ بحرية",
+		"role_color": Color("#38bdf8"),
+		"build_time": 3.8
+	},
+	"river_gunboat": {
+		"kind": "river_gunboat",
+		"hotkey": "",
+		"cost": 240,
+		"hp": 440.0,
+		"speed": 70.0,
+		"radius": 21.0,
+		"range": 350.0,
+		"damage": 92.0,
+		"fireRate": 2.2,
+		"bridgeBonus": 1.8,
+		"category": "shipyard",
+		"is_naval": true,
+		"name": "زورق مدفعية ثقيل",
+		"role_tag": "قصف ساحلي",
+		"role_color": Color("#f59e0b"),
+		"build_time": 4.8
+	},
+	"sam_launcher": {
+		"kind": "sam_launcher",
+		"hotkey": "",
+		"cost": 190,
+		"hp": 170.0,
+		"speed": 65.0,
+		"radius": 16.0,
+		"range": 380.0,
+		"damage": 78.0,
+		"fireRate": 1.5,
+		"bridgeBonus": 0.8,
+		"category": "missile_plant",
+		"is_aa": true,
+		"name": "عربة دفاع جوي SAM",
+		"role_tag": "اعتراض جوي",
+		"role_color": Color("#ef4444"),
+		"build_time": 3.6
 	}
 }
 
-const BUILDABLE_UNITS: Array[String] = ["scout", "tank", "behemoth", "artillery", "helicopter", "engineer"]
+const BUILDABLE_UNITS: Array[String] = [
+	"scout", "tank", "behemoth", "artillery", "helicopter", "engineer",
+	"infantry_rifle", "infantry_at", "infantry_mortar",
+	"jet_interceptor", "strike_bomber",
+	"patrol_boat", "missile_corvette", "river_gunboat",
+	"sam_launcher"
+]
 
 const BUILDING_SPECS: Dictionary = {
 	"war_factory": {
@@ -304,6 +474,107 @@ const BUILDING_SPECS: Dictionary = {
 		"role_tag": "إعاقة وحواجز",
 		"role_color": Color("#a1a1aa"),
 		"desc": "حواجز خرسانية وأكياس رمل متراصة تعترض تقدم آليات العدو وتحمي المداخل."
+	},
+	"barracks": {
+		"kind": "barracks",
+		"name": "ثكنة المشاة والعمليات",
+		"hotkey": "F1",
+		"cost": 140,
+		"hp": 580.0,
+		"radius": 28.0,
+		"width": 60.0,
+		"height": 52.0,
+		"build_time": 3.0,
+		"role_tag": "تدريب مشاة",
+		"role_color": Color("#84cc16"),
+		"desc": "مجمع تدريب وتحصين عسكري يجهز فصائل المشاة وفرق الصواريخ ومهندسي الميدان."
+	},
+	"airfield": {
+		"kind": "airfield",
+		"name": "المطار وقاعدة العمليات الجوية",
+		"hotkey": "F3",
+		"cost": 240,
+		"hp": 720.0,
+		"radius": 38.0,
+		"width": 84.0,
+		"height": 64.0,
+		"build_time": 4.5,
+		"role_tag": "سلاح الجو",
+		"role_color": Color("#38bdf8"),
+		"desc": "مدرج وحظيرة طيران حديثة لإطلاق المقاتلات الاعتراضية وقاذفات الهجوم التكتيكي."
+	},
+	"shipyard": {
+		"kind": "shipyard",
+		"name": "حوض السفن والترسانة النهرية",
+		"hotkey": "F4",
+		"cost": 210,
+		"hp": 680.0,
+		"radius": 34.0,
+		"width": 72.0,
+		"height": 64.0,
+		"build_time": 4.0,
+		"role_tag": "أسطول نهري",
+		"role_color": Color("#06b6d4"),
+		"shore_only": true,
+		"desc": "ترسانة بحرية خرسانية تُبنى على ضفاف الأنهار لتصنيع زوارق الدورية والفرقاطات."
+	},
+	"missile_plant": {
+		"kind": "missile_plant",
+		"name": "مجمع الصواريخ ومنظومات الردع",
+		"hotkey": "F5",
+		"cost": 225,
+		"hp": 690.0,
+		"radius": 32.0,
+		"width": 64.0,
+		"height": 54.0,
+		"build_time": 4.2,
+		"role_tag": "راجمات ودفاع جوي",
+		"role_color": Color("#ef4444"),
+		"desc": "منشأة هندسية متقدمة لتجميع راجمات صواريخ كاتيوشا وعربات الدفاع الجوي المحمولة."
+	}
+}
+
+const PRODUCTION_CATEGORIES: Dictionary = {
+	"defense": {
+		"id": "defense",
+		"name": "دفاعات وتحصين",
+		"code": "[ DEFENSE // F6-F8 ]",
+		"structures": ["turret", "missile_battery", "sandbag_wall", "repair_depot", "refinery_silo"]
+	},
+	"barracks": {
+		"id": "barracks",
+		"name": "ثكنات المشاة",
+		"code": "[ BARRACKS // ثكنة ]",
+		"structure": "barracks",
+		"units": ["infantry_rifle", "infantry_at", "engineer", "infantry_mortar"]
+	},
+	"war_factory": {
+		"id": "war_factory",
+		"name": "مصنع المدرعات",
+		"code": "[ FACTORY // مدرعات ]",
+		"structure": "war_factory",
+		"units": ["scout", "tank", "behemoth"]
+	},
+	"airfield": {
+		"id": "airfield",
+		"name": "المطار العسكري",
+		"code": "[ AIRFIELD // سلاح الجو ]",
+		"structure": "airfield",
+		"units": ["jet_interceptor", "strike_bomber", "helicopter"]
+	},
+	"shipyard": {
+		"id": "shipyard",
+		"name": "حوض السفن النهري",
+		"code": "[ SHIPYARD // أسطول نهري ]",
+		"structure": "shipyard",
+		"units": ["patrol_boat", "missile_corvette", "river_gunboat"]
+	},
+	"missile_plant": {
+		"id": "missile_plant",
+		"name": "مجمع الصواريخ",
+		"code": "[ MISSILES // راجمات ]",
+		"structure": "missile_plant",
+		"units": ["artillery", "sam_launcher"]
 	}
 }
 

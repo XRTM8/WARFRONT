@@ -51,6 +51,7 @@ func _init() -> void:
 	test_modular_architecture_and_subsystems()
 	test_world_and_maps_2_visual_systems()
 	test_map_generation_engine_2_and_stress_test()
+	test_combined_arms_production_and_gated_queues()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -907,6 +908,84 @@ func test_map_generation_engine_2_and_stress_test() -> void:
 		assert(val["valid"] == true, "Stress test failed on iteration %d (%s, seed %d): %s" % [i, th, seed_i, val["reason"]])
 
 	print("✔ Test 18: Map Generation Engine 2.0 (Blueprints, Archetypes, Validator & 50-Seed Stress Test) passed.")
+
+func test_combined_arms_production_and_gated_queues() -> void:
+	# 1. Verification of Combined Arms Facilities & Military Units
+	for b_kind in ["airfield", "shipyard", "barracks", "missile_plant"]:
+		assert(Constants.BUILDING_SPECS.has(b_kind), "Building specs must include '%s'" % b_kind)
+		
+	for u_kind in ["jet_interceptor", "strike_bomber", "patrol_boat", "missile_corvette", "river_gunboat", "sam_launcher", "infantry_rifle", "infantry_at", "infantry_mortar"]:
+		assert(Constants.UNIT_SPECS.has(u_kind), "Unit specs must include '%s'" % u_kind)
+		
+	assert(Constants.PRODUCTION_CATEGORIES.size() == 6, "Must define 6 tactical production branches")
+	assert(Constants.BUILDING_SPECS["shipyard"].get("shore_only", false) == true, "Shipyard must require shoreline terrain")
+
+	# 2. Production Queue & Mandatory Rally Waypoint Freeze
+	var sim = Simulation.new("kirkuk", 881923)
+	sim.player_oil = 3000
+	sim.player_rally_point = Vector2.ZERO # Ensure no global rally point is set
+	var queues = sim.get_production_queues("player")
+	queues["barracks"]["rally_point"] = Vector2.ZERO
+
+	# Queue 5 rifle infantry squads
+	for i in range(5):
+		var ok = sim.queue_unit("infantry_rifle", "player")
+		assert(ok, "Queueing infantry rifle should succeed with adequate oil")
+
+	assert(queues["barracks"]["items"].size() == 5, "Queue must contain exactly 5 units")
+	assert(queues["barracks"]["state"] == "pending_rally", "Queue without deployment waypoint must freeze in 'pending_rally'")
+	
+	# Advance simulation time while pending rally
+	for step in range(15):
+		sim.step(0.1)
+		
+	assert(queues["barracks"]["progress"] == 0.0, "Progress must remain frozen at 0% while awaiting deployment destination")
+	assert(queues["barracks"]["items"].size() == 5, "No units should spawn while pending rally")
+
+	# 3. Setting Deployment Destination & Active Rollout
+	var rally_dest = Vector2(820.0, 540.0)
+	sim.set_category_rally_point("barracks", rally_dest, "player")
+	assert(queues["barracks"]["state"] == "producing", "Setting rally point must transition queue to 'producing'")
+	
+	# Simulate production to completion of first unit (dt is clamped to 0.05 in sim.step)
+	var initial_units_count = sim.units.size()
+	for step in range(45):
+		sim.step(0.1)
+		
+	assert(sim.units.size() == initial_units_count + 1, "First unit in queue must complete and spawn")
+	var deployed_infantry = sim.units[sim.units.size() - 1]
+	assert(deployed_infantry["kind"] == "infantry_rifle", "Spawned unit must be infantry_rifle")
+	assert(deployed_infantry["targetPos"] == rally_dest, "Newly trained unit must automatically march to the designated rally waypoint")
+	assert(queues["barracks"]["items"].size() == 4, "Queue must decrement to 4 units remaining")
+
+	# 4. Multi-Building Production Speed Stacking
+	# Add first war factory: baseline 1.0x speed
+	var factory_1 = { "id": 900, "kind": "war_factory", "faction": "player", "status": "ready" }
+	sim.structures.push_back(factory_1)
+	var base_mult = sim.get_production_speed_multiplier("war_factory", "player")
+	assert(base_mult == 1.0, "Single war factory base speed multiplier must be 1.0x")
+	
+	# Add second war factory: 1.5x speed (+50% speed bonus)
+	var factory_2 = { "id": 901, "kind": "war_factory", "faction": "player", "status": "ready" }
+	sim.structures.push_back(factory_2)
+	var stack_mult_2 = sim.get_production_speed_multiplier("war_factory", "player")
+	assert(stack_mult_2 == 1.5, "2 war factories must stack speed multiplier to 1.5x (+50% speed)")
+	
+	# Add third war factory: 2.0x speed (+100% speed bonus)
+	var factory_3 = { "id": 902, "kind": "war_factory", "faction": "player", "status": "ready" }
+	sim.structures.push_back(factory_3)
+	var stack_mult_3 = sim.get_production_speed_multiplier("war_factory", "player")
+	assert(stack_mult_3 == 2.0, "3 war factories must stack speed multiplier to 2.0x (+100% speed)")
+
+	# 5. Specialized Naval & Aircraft Combat Properties
+	var jet = sim.spawn_unit("player", "jet_interceptor", 400.0, 300.0)
+	assert(jet["is_air"] == true, "Jet interceptor must be flagged as airborne")
+	assert(jet["altitude"] >= 40.0, "Jet interceptor must maintain high-altitude flight elevation")
+
+	var boat = sim.spawn_unit("player", "patrol_boat", 1200.0, 800.0)
+	assert(boat["is_naval"] == true, "Patrol boat must be flagged as naval vessel")
+
+	print("✔ Test 19: Combined Arms Production, Queues, Waypoint Gating & Speed Stacking passed.")
 
 
 

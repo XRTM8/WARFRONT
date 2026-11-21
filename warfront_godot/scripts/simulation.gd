@@ -10,6 +10,7 @@ const SimAI = preload("res://scripts/sim_ai.gd")
 const SimUnits = preload("res://scripts/sim_units.gd")
 const SimCommander = preload("res://scripts/sim_commander.gd")
 const SimBuildings = preload("res://scripts/sim_buildings.gd")
+const SimProductionQueue = preload("res://scripts/sim_production_queue.gd")
 
 signal event_pushed(key: String, tone: String)
 signal sound_triggered(sfx_name: String)
@@ -313,6 +314,7 @@ func step(dt: float) -> void:
 	SimLogistics.update_oil_rigs(self, dt)
 	SimUnits.update_units(self, dt)
 	SimBuildings.update_structures(self, dt)
+	SimProductionQueue.tick_production(self, dt)
 	SimCombat.update_projectiles(self, dt)
 	SimCommander.update_commander(self, dt)
 	SimCombat.update_flying_turrets(self, dt)
@@ -402,6 +404,21 @@ func spawn_unit(faction: String, kind: String, x: float, y: float, slot_idx: int
 func train_player_unit(kind: String) -> bool:
 	return SimUnits.train_player_unit(self, kind)
 
+func queue_unit(kind: String, faction: String = "player") -> bool:
+	return SimProductionQueue.queue_unit(self, faction, kind)
+
+func set_category_rally_point(category: String, point: Vector2, faction: String = "player") -> void:
+	SimProductionQueue.set_category_rally_point(self, faction, category, point)
+
+func get_production_queues(faction: String = "player") -> Dictionary:
+	return SimProductionQueue.get_queues(self, faction)
+
+func get_facility_count(facility_kind: String, faction: String = "player") -> int:
+	return SimProductionQueue.get_facility_count(self, faction, facility_kind)
+
+func get_production_speed_multiplier(category: String, faction: String = "player") -> float:
+	return SimProductionQueue.get_speed_multiplier(self, faction, category)
+
 func place_player_turret(x: float, y: float) -> bool:
 	return SimUnits.place_player_turret(self, x, y)
 
@@ -432,6 +449,8 @@ func set_player_rally_point(world_x: float, world_y: float) -> void:
 	push_event("rally_point_set", "good")
 	spawn_floating_text(world_x, world_y - 20.0, "[ RALLY POINT // راية التجمع ]", Color("#38bdf8"), 1.25)
 	spawn_particle("ring", world_x, world_y, 0.0, 0.0, 4.0, 36.0, 0.35, Color("#38bdf8"))
+	for cat in ["barracks", "war_factory", "airfield", "shipyard", "missile_plant"]:
+		set_category_rally_point(cat, player_rally_point, "player")
 
 func stop_selected_units() -> void:
 	SimUnits.stop_selected_units(self)

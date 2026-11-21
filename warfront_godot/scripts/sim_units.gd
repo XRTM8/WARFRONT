@@ -9,6 +9,8 @@ const SimUnitSpawner = preload("res://scripts/sim_unit_spawner.gd")
 const SimUnitAbilities = preload("res://scripts/sim_unit_abilities.gd")
 const SimUnitMovement = preload("res://scripts/sim_unit_movement.gd")
 const SimUnitCommands = preload("res://scripts/sim_unit_commands.gd")
+const SimNaval = preload("res://scripts/sim_naval.gd")
+const SimAircraft = preload("res://scripts/sim_aircraft.gd")
 
 # ------------------------------------------------------------------------------
 # Facade Delegations: Spawning & Recruitment
@@ -126,8 +128,13 @@ static func update_units(sim, dt: float) -> void:
 			update_combat_unit(sim, u, dt)
 
 static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
-	var is_airborne = (u["kind"] == "helicopter")
+	var is_airborne = u.get("is_air", false) or (u["kind"] == "helicopter")
 	var cur_vec = Vector2(u["x"], u["y"])
+	
+	if u.get("is_naval", false):
+		SimNaval.update_naval_unit(sim, u, dt)
+	if u.get("is_air", false):
+		SimAircraft.update_aircraft(sim, u, dt)
 
 	# 1. Soft Crowd Flocking & Dynamic Building Avoidance
 	cur_vec = SimUnitMovement.apply_crowd_separation(sim, u, dt, is_airborne, cur_vec)
