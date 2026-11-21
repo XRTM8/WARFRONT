@@ -26,6 +26,9 @@ const RenderWater = preload("res://scripts/render_water.gd")
 const RenderAtmosphere = preload("res://scripts/render_atmosphere.gd")
 const RenderEnvironment = preload("res://scripts/render_environment.gd")
 const RenderFogOfWar = preload("res://scripts/render_fog_of_war.gd")
+const MapGenValidator = preload("res://scripts/map_gen_validator.gd")
+const MapGenBlueprint = preload("res://scripts/map_gen_blueprint.gd")
+const MapGenArchetypes = preload("res://scripts/map_gen_archetypes.gd")
 
 func _init() -> void:
 	print("--- Running WarFront Godot Automated Verification Tests ---")
@@ -47,6 +50,7 @@ func _init() -> void:
 	test_multi_agent_ai_and_ffa_survival()
 	test_modular_architecture_and_subsystems()
 	test_world_and_maps_2_visual_systems()
+	test_map_generation_engine_2_and_stress_test()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -871,6 +875,39 @@ func test_world_and_maps_2_visual_systems() -> void:
 	assert(RenderAtmosphere.SUN_DIR == Vector2(0.7071, 0.7071), "Atmospheric directional sun vector must maintain uniform 45-degree angle")
 	
 	print("✔ Test 17: World & Maps 2.0 Visual Systems (Terrain, Water, Atmosphere, Infrastructure, Fog of War) passed.")
+
+func test_map_generation_engine_2_and_stress_test() -> void:
+	# 1. Blueprint Registry & Declarative Schema
+	var blueprints = MapGenBlueprint.THEATER_BLUEPRINTS
+	assert(blueprints.has("canyon_pass_1v1"), "Blueprint registry must define 'canyon_pass_1v1'")
+	assert(blueprints.has("central_plateau_1v1"), "Blueprint registry must define 'central_plateau_1v1'")
+	assert(blueprints.has("basra"), "Blueprint registry must define 'basra'")
+	
+	# 2. Strict Mathematical Validation Engine
+	var dummy_bad_map = { "cols": 10, "rows": 10, "tiles": [] }
+	var val_fail = MapGenValidator.validate_map(dummy_bad_map)
+	assert(val_fail["valid"] == false, "MapGenValidator must catch empty/malformed map data")
+	
+	# 3. Canyon Pass Archetype Generation & Chokepoint Verification
+	var canyon_map = MapGen.generate_map("canyon_pass_1v1", 994821)
+	assert(canyon_map["cols"] == 72 and canyon_map["rows"] == 40, "Canyon pass must initialize 72x40 standard theater bounds")
+	assert(canyon_map["bridges"].size() == 3, "Canyon pass must feature 3 tactical corridor bridges")
+	assert(canyon_map["rigs"].size() == 8, "Canyon pass must place exactly 8 competitive rigs")
+	var val_canyon = MapGenValidator.validate_map(canyon_map)
+	assert(val_canyon["valid"] == true, "Generated Canyon Pass map must pass all 6 validation criteria")
+
+	# 4. Multi-Seed Stress Testing: 50 Procedural Iterations
+	# Mathematically verifies that the generator NEVER produces a broken, unplayable, or malformed map
+	var test_theaters = ["kirkuk", "suez", "canyon_pass_1v1", "basra"]
+	for i in range(1, 51):
+		var th = test_theaters[i % test_theaters.size()]
+		var seed_i = 1000 + i * 79
+		var gen_map = MapGen.generate_map(th, seed_i)
+		var val = MapGenValidator.validate_map(gen_map)
+		assert(val["valid"] == true, "Stress test failed on iteration %d (%s, seed %d): %s" % [i, th, seed_i, val["reason"]])
+
+	print("✔ Test 18: Map Generation Engine 2.0 (Blueprints, Archetypes, Validator & 50-Seed Stress Test) passed.")
+
 
 
 

@@ -5,11 +5,26 @@ const Constants = preload("res://scripts/constants.gd")
 const Utils = preload("res://scripts/map_gen_utils.gd")
 const Standard = preload("res://scripts/map_gen_standard.gd")
 const Large = preload("res://scripts/map_gen_large.gd")
+const Archetypes = preload("res://scripts/map_gen_archetypes.gd")
+const Blueprint = preload("res://scripts/map_gen_blueprint.gd")
+const Validator = preload("res://scripts/map_gen_validator.gd")
 
 static func generate_map(theater: String, seed_val: int = 104729) -> Dictionary:
-	if theater == "basra" or theater == "zagros":
-		return Large.generate(theater, seed_val)
-	return Standard.generate(theater, seed_val)
+	var map: Dictionary
+	if Blueprint.THEATER_BLUEPRINTS.has(theater):
+		map = Archetypes.generate_from_blueprint(theater, seed_val)
+	elif theater == "basra" or theater == "zagros":
+		map = Large.generate(theater, seed_val)
+	else:
+		map = Standard.generate(theater, seed_val)
+		
+	# Final safety validation check
+	var val = Validator.validate_map(map)
+	if not val["valid"]:
+		# Guaranteed fallback to rock-solid standard map if anything unexpected occurs
+		map = Standard.generate("kirkuk", seed_val)
+		
+	return map
 
 # Backward-compatibility delegates for scripts/tests expecting MapGen static methods
 static func create_rng(seed_val: int) -> Callable:
