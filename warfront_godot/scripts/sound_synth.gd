@@ -1,6 +1,12 @@
 class_name SoundSynth
 extends Node
 
+const Helpers = preload("res://scripts/audio_dsp_helpers.gd")
+const Weapons = preload("res://scripts/audio_weapons.gd")
+const Impacts = preload("res://scripts/audio_impacts.gd")
+const Comms = preload("res://scripts/audio_comms.gd")
+const UI = preload("res://scripts/audio_ui.gd")
+
 const SAMPLE_RATE: int = 44100
 const POOL_SIZE: int = 16
 
@@ -14,14 +20,12 @@ func _ready() -> void:
 func initialize() -> void:
 	if _sounds.size() > 0:
 		return
-	# 1. Initialize Polyphonic AudioStreamPlayer Voice Pool
 	for i in range(POOL_SIZE):
 		var p = AudioStreamPlayer.new()
 		p.bus = "Master"
 		add_child(p)
 		_players.push_back(p)
 		
-	# 2. Pre-render All Studio-Grade Procedural Military Audio Buffers
 	_generate_all_sounds()
 
 func play_sound(sfx_name: String) -> void:
@@ -33,726 +37,65 @@ func play_sound(sfx_name: String) -> void:
 	_player_cursor = (_player_cursor + 1) % POOL_SIZE
 	
 	player.stream = stream
-	# Natural subtle pitch randomization (prevents machine-gun fatigue)
-	if sfx_name == "rapid_fire" or sfx_name == "shot" or sfx_name == "cannon":
+	if sfx_name in ["rapid_fire", "shot", "cannon"]:
 		player.pitch_scale = randf_range(0.96, 1.04)
-	elif sfx_name == "explosion" or sfx_name == "behemoth_cannon":
+	elif sfx_name in ["explosion", "behemoth_cannon"]:
 		player.pitch_scale = randf_range(0.94, 1.05)
 	else:
 		player.pitch_scale = 1.0
 		
 	player.play()
 
-# ------------------------------------------------------------------------------
-# Audio Generation Engine (16-bit PCM / 44.1 kHz / Band-limited / IIR Filtered)
-# ------------------------------------------------------------------------------
-
 func _generate_all_sounds() -> void:
-	_sounds["cannon"] = _synth_cannon()
-	_sounds["behemoth_cannon"] = _synth_behemoth_cannon()
-	_sounds["rapid_fire"] = _synth_rapid_fire()
-	_sounds["shot"] = _synth_shot()
-	_sounds["explosion"] = _synth_explosion(false)
-	_sounds["bridge_collapse"] = _synth_bridge_collapse()
-	_sounds["ricochet"] = _synth_ricochet()
-	_sounds["oil_deposit"] = _synth_oil_deposit()
-	_sounds["promotion"] = _synth_promotion()
-	_sounds["capture"] = _synth_capture()
-	_sounds["order_move"] = _synth_order_move()
-	_sounds["order_attack"] = _synth_order_attack()
-	_sounds["unit_select"] = _synth_unit_select()
-	_sounds["order_click"] = _synth_order_move()
-	_sounds["victory"] = _synth_victory()
-	_sounds["defeat"] = _synth_defeat()
-	_sounds["airstrike_jet"] = _synth_airstrike_jet()
-	_sounds["siren"] = _synth_siren()
-	_sounds["salvage_pickup"] = _synth_salvage_pickup()
-	_sounds["recon_ping"] = _synth_recon_ping()
-	_sounds["unit_ready"] = _synth_unit_ready()
-	_sounds["structure_placed"] = _synth_capture()
-	_sounds["order_stop"] = _synth_order_stop()
-	_sounds["order_hold"] = _synth_order_hold()
-	_sounds["order_retreat"] = _synth_order_retreat()
-	_sounds["war_horn"] = _synth_war_horn()
-	_sounds["turret_crash"] = _synth_turret_crash()
-	_sounds["hydra_salvo"] = _synth_hydra_salvo()
-	_sounds["cargo_flyby"] = _synth_cargo_flyby()
-	_sounds["mine_detonate"] = _synth_mine_detonate()
-	_sounds["multi_kill"] = _synth_multi_kill()
-	_sounds["radio_in"] = _synth_radio_squawk()
-	_sounds["bark_roger"] = _synth_bark_roger()
-	_sounds["bark_retreat"] = _synth_bark_retreat()
+	# 1. Weapon Ballistics
+	_sounds["cannon"] = Weapons.synth_cannon()
+	_sounds["behemoth_cannon"] = Weapons.synth_behemoth_cannon()
+	_sounds["rapid_fire"] = Weapons.synth_rapid_fire()
+	_sounds["shot"] = Weapons.synth_shot()
+	_sounds["hydra_salvo"] = Weapons.synth_hydra_salvo()
 
-func _synth_cannon() -> AudioStreamWAV:
-	# T-72 125mm Main Battle Tank Cannon
-	var duration = 0.30
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-11.0 * t)
-		var sub_freq = 130.0 * (1.0 - (float(i) / float(count)) * 0.72)
-		var sub = sin(t * sub_freq * TAU) * 0.55 * env
-		var noise = (randf() * 2.0 - 1.0) * env * 0.65
-		raw[i] = sub + noise
-		
-	var filtered = _apply_lowpass(raw, 520.0)
-	for i in range(min(count, int(0.012 * SAMPLE_RATE))):
-		var click = (randf() * 2.0 - 1.0) * (1.0 - float(i) / (0.012 * SAMPLE_RATE)) * 0.35
-		filtered[i] += click
-		
-	return _build_wav(filtered)
+	# 2. Impacts & Destructions
+	_sounds["explosion"] = Impacts.synth_explosion(false)
+	_sounds["bridge_collapse"] = Impacts.synth_bridge_collapse()
+	_sounds["ricochet"] = Impacts.synth_ricochet()
+	_sounds["turret_crash"] = Impacts.synth_turret_crash()
+	_sounds["mine_detonate"] = Impacts.synth_mine_detonate()
 
-func _synth_behemoth_cannon() -> AudioStreamWAV:
-	# Dual 152mm Heavy Siege Rail Cannons
-	var duration = 0.50
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env1 = exp(-7.5 * t)
-		var env2 = exp(-7.5 * max(0.0, t - 0.08))
-		var sub1 = sin(t * 88.0 * TAU) * 0.75 * env1
-		var sub2 = sin(max(0.0, t - 0.08) * 72.0 * TAU) * 0.65 * env2
-		var blast = (randf() * 2.0 - 1.0) * (env1 * 0.7 + env2 * 0.5)
-		raw[i] = sub1 + sub2 + blast
-		
-	var filtered = _apply_lowpass(raw, 440.0)
-	return _build_wav(filtered)
+	# 3. Comms, Radio & Flybys
+	_sounds["airstrike_jet"] = Comms.synth_airstrike_jet()
+	_sounds["siren"] = Comms.synth_siren()
+	_sounds["recon_ping"] = Comms.synth_recon_ping()
+	_sounds["war_horn"] = Comms.synth_war_horn()
+	_sounds["cargo_flyby"] = Comms.synth_cargo_flyby()
+	_sounds["radio_in"] = Comms.synth_radio_squawk()
+	_sounds["bark_roger"] = Comms.synth_bark_roger()
+	_sounds["bark_retreat"] = Comms.synth_bark_retreat()
 
-func _synth_rapid_fire() -> AudioStreamWAV:
-	# 30mm Autocannon Rotary Burst
-	var duration = 0.12
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-35.0 * t)
-		var snap = sin(t * 260.0 * TAU) * 0.45 * env
-		var crack = (randf() * 2.0 - 1.0) * 0.65 * env
-		raw[i] = snap + crack
-		
-	var filtered = _apply_lowpass(raw, 1800.0)
-	return _build_wav(filtered)
+	# 4. Tactical UI, Objectives & Orders
+	_sounds["oil_deposit"] = UI.synth_oil_deposit()
+	_sounds["promotion"] = UI.synth_promotion()
+	_sounds["capture"] = UI.synth_capture()
+	_sounds["structure_placed"] = UI.synth_capture()
+	_sounds["order_move"] = UI.synth_order_move()
+	_sounds["order_click"] = UI.synth_order_move()
+	_sounds["order_attack"] = UI.synth_order_attack()
+	_sounds["order_stop"] = UI.synth_order_stop()
+	_sounds["order_hold"] = UI.synth_order_hold()
+	_sounds["order_retreat"] = UI.synth_order_retreat()
+	_sounds["unit_select"] = UI.synth_unit_select()
+	_sounds["unit_ready"] = UI.synth_unit_ready()
+	_sounds["salvage_pickup"] = UI.synth_salvage_pickup()
+	_sounds["multi_kill"] = UI.synth_multi_kill()
+	_sounds["victory"] = UI.synth_victory()
+	_sounds["defeat"] = UI.synth_defeat()
 
-func _synth_shot() -> AudioStreamWAV:
-	# 12.7mm Heavy Anti-Materiel / Turret Machine Gun Shot
-	var duration = 0.14
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-28.0 * t)
-		var punch = sin(t * 190.0 * TAU) * 0.5 * env
-		var noise = (randf() * 2.0 - 1.0) * 0.6 * env
-		raw[i] = punch + noise
-		
-	var filtered = _apply_lowpass(raw, 1200.0)
-	return _build_wav(filtered)
-
-func _synth_explosion(_heavy: bool = false) -> AudioStreamWAV:
-	# High-Explosive Ordnance Detonation with Sub-Bass Rumble
-	var duration = 0.75
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env_initial = exp(-12.0 * t) * 0.85
-		var env_tail = exp(-3.2 * t) * 0.65
-		var sub = sin(t * 48.0 * TAU) * env_tail
-		var debris_noise = (randf() * 2.0 - 1.0) * (env_initial + env_tail * 0.5)
-		raw[i] = sub + debris_noise
-		
-	var filtered = _apply_lowpass(raw, 320.0)
-	return _build_wav(filtered)
-
-func _synth_bridge_collapse() -> AudioStreamWAV:
-	# Tectonic Steel-Concrete Bridge Destruction
-	var duration = 1.10
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-2.4 * t)
-		var rumble = sin(t * 34.0 * TAU) * 0.7 * env
-		var groan = sin(t * 115.0 * TAU + sin(t * 18.0 * TAU) * 3.0) * 0.35 * env
-		var debris = (randf() * 2.0 - 1.0) * 0.75 * env
-		raw[i] = rumble + groan + debris
-		
-	var filtered = _apply_lowpass(raw, 280.0)
-	return _build_wav(filtered)
-
-func _synth_ricochet() -> AudioStreamWAV:
-	# Sloped Armor High-Velocity Ballistic Deflection
-	var duration = 0.18
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-20.0 * t)
-		var freq = 2400.0 - (float(i) / float(count)) * 1600.0
-		var ping = sin(t * freq * TAU) * 0.75 * env
-		var spark = (randf() * 2.0 - 1.0) * 0.25 * env
-		raw[i] = ping + spark
-		
-	return _build_wav(raw)
-
-func _synth_oil_deposit() -> AudioStreamWAV:
-	# Heavy Hydraulic Oil Valve Clunk & Flow Chime
-	var duration = 0.26
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-14.0 * t)
-		var thud = sin(t * 85.0 * TAU) * 0.7 * env
-		var chime = sin(t * 680.0 * TAU) * 0.35 * exp(-18.0 * t)
-		raw[i] = thud + chime
-		
-	return _build_wav(raw)
-
-func _synth_promotion() -> AudioStreamWAV:
-	# Regal Military Trumpet Fanfare Chord (Bb major triad)
-	var duration = 0.42
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	var notes = [
-		{ "freq": 466.0, "start": 0.0, "len": 0.14 },
-		{ "freq": 587.0, "start": 0.09, "len": 0.14 },
-		{ "freq": 698.0, "start": 0.18, "len": 0.15 },
-		{ "freq": 932.0, "start": 0.27, "len": 0.15 }
-	]
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var val = 0.0
-		for n in notes:
-			if t >= n["start"] and t < n["start"] + n["len"]:
-				var dt = t - n["start"]
-				var env = exp(-12.0 * dt)
-				var brass = sin(dt * n["freq"] * TAU) + sin(dt * n["freq"] * 2.0 * TAU) * 0.4 + sin(dt * n["freq"] * 3.0 * TAU) * 0.18
-				val += brass * env * 0.28
-		raw[i] = val
-		
-	return _build_wav(raw)
-
-func _synth_capture() -> AudioStreamWAV:
-	# Tactical Strategic Objective Securing Fanfare
-	var duration = 0.35
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-8.0 * t)
-		var freq = 440.0 if t < 0.12 else (554.37 if t < 0.24 else 659.25)
-		var chord = sin(t * freq * TAU) * 0.6 * env
-		raw[i] = chord
-		
-	return _build_wav(raw)
-
-func _synth_order_move() -> AudioStreamWAV:
-	# Low Soft Tactical Move Acknowledge Blip
-	var duration = 0.07
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-45.0 * t)
-		var blip = sin(t * 880.0 * TAU) * 0.5 * env
-		raw[i] = blip
-		
-	return _build_wav(raw)
-
-func _synth_order_attack() -> AudioStreamWAV:
-	# Urgent Staccato Attack Order Click
-	var duration = 0.09
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-35.0 * t)
-		var tone = sin(t * 1174.66 * TAU) * 0.55 * env
-		raw[i] = tone
-		
-	return _build_wav(raw)
-
-func _synth_unit_select() -> AudioStreamWAV:
-	# Clean Military HUD Interface Selection Click
-	var duration = 0.04
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-90.0 * t)
-		var val = sin(t * 1400.0 * TAU) * 0.45 * env
-		raw[i] = val
-		
-	return _build_wav(raw)
-
-func _synth_victory() -> AudioStreamWAV:
-	# Triumphant Cinematic Brass Fanfare
-	var duration = 1.40
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	var chords = [
-		{ "freq": 523.25, "start": 0.0, "len": 0.35 }, # C5
-		{ "freq": 659.25, "start": 0.30, "len": 0.35 }, # E5
-		{ "freq": 783.99, "start": 0.60, "len": 0.40 }, # G5
-		{ "freq": 1046.50, "start": 0.90, "len": 0.50 } # C6
-	]
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var val = 0.0
-		for c in chords:
-			if t >= c["start"] and t < c["start"] + c["len"]:
-				var dt = t - c["start"]
-				var env = exp(-4.5 * dt)
-				var tone = sin(dt * c["freq"] * TAU) * 0.5 + sin(dt * (c["freq"] * 2.0) * TAU) * 0.25
-				val += tone * env * 0.4
-		raw[i] = val
-		
-	return _build_wav(raw)
-
-func _synth_defeat() -> AudioStreamWAV:
-	# Somber Low Resonance Brass Dirge
-	var duration = 1.20
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	var notes = [
-		{ "freq": 220.0, "start": 0.0, "len": 0.4 }, # A3
-		{ "freq": 196.0, "start": 0.35, "len": 0.4 }, # G3
-		{ "freq": 174.61, "start": 0.70, "len": 0.5 } # F3
-	]
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var val = 0.0
-		for n in notes:
-			if t >= n["start"] and t < n["start"] + n["len"]:
-				var dt = t - n["start"]
-				var env = exp(-6.0 * dt)
-				var tone = sin(dt * n["freq"] * TAU) + sin(dt * (n["freq"] * 1.5) * TAU) * 0.25
-				val += tone * env * 0.25
-		raw[i] = val
-		
-	return _build_wav(raw)
-
-func _synth_airstrike_jet() -> AudioStreamWAV:
-	# Supersonic Jet Fighter Flyby with Doppler Frequency Drop & Turbine Roar
-	var duration = 0.85
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var progress = float(i) / float(count)
-		var freq = 680.0 * (1.0 - progress * 0.68)
-		var amp = sin(progress * PI)
-		var tone = sin(t * freq * TAU) * 0.35
-		var sub = sin(t * (freq * 0.5) * TAU) * 0.4
-		var white_noise = (randf() * 2.0 - 1.0) * 0.55
-		raw[i] = (tone + sub + white_noise) * amp
-		
-	var filtered = _apply_lowpass(raw, 750.0)
-	return _build_wav(filtered)
-
-func _synth_siren() -> AudioStreamWAV:
-	# Air-Raid / Escalation Warning Siren
-	var duration = 0.60
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var mod = sin(t * 7.0 * TAU) * 120.0
-		var freq = 580.0 + mod
-		var env = min(1.0, t * 12.0) * (1.0 - (float(i) / float(count)) * 0.4)
-		var val = sin(t * freq * TAU) * 0.65 + sin(t * (freq * 2.0) * TAU) * 0.2
-		raw[i] = val * env
-		
-	return _build_wav(raw)
-
-func _synth_salvage_pickup() -> AudioStreamWAV:
-	# Crisp Metal Clink & Oil Cargo Collection Chime
-	var duration = 0.22
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env1 = exp(-22.0 * t)
-		var env2 = exp(-14.0 * max(0.0, t - 0.04))
-		var tone1 = sin(t * 987.77 * TAU) * env1 * 0.6 # B5
-		var tone2 = sin(max(0.0, t - 0.04) * 1318.51 * TAU) * env2 * 0.5 # E6
-		var click = (randf() * 2.0 - 1.0) * exp(-90.0 * t) * 0.35
-		raw[i] = tone1 + tone2 + click
-		
-	return _build_wav(raw)
-
-func _synth_recon_ping() -> AudioStreamWAV:
-	# Radar / Sonar Sweep Pulse Chirp
-	var duration = 0.32
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var progress = float(i) / float(count)
-		var freq = 1200.0 + progress * 600.0
-		var env = exp(-8.0 * t)
-		var val = sin(t * freq * TAU) * env * 0.55 + sin(t * (freq * 1.5) * TAU) * env * 0.2
-		raw[i] = val
-		
-	return _build_wav(raw)
-
-func _synth_unit_ready() -> AudioStreamWAV:
-	# Tactical Military Comm Squelch & Ready Chime (880Hz -> 1320Hz rising chime + radio gate)
-	var duration = 0.28
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env1 = exp(-18.0 * t)
-		var env2 = exp(-12.0 * max(0.0, t - 0.08))
-		var tone1 = sin(t * 880.0 * TAU) * env1 * 0.45
-		var tone2 = sin(max(0.0, t - 0.08) * 1320.0 * TAU) * env2 * 0.55
-		# Radio noise burst at onset
-		var squelch = (randf() * 2.0 - 1.0) * exp(-50.0 * t) * 0.15
-		raw[i] = tone1 + tone2 + squelch
-		
-	return _build_wav(raw)
-
-func _synth_order_stop() -> AudioStreamWAV:
-	# Hydraulic Air-Brake Release & Gear Clamp
-	var duration = 0.22
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var hiss_env = exp(-14.0 * t)
-		var hiss = (randf() * 2.0 - 1.0) * hiss_env * 0.4
-		var clamp_thud = sin(t * 160.0 * TAU) * exp(-28.0 * t) * 0.6
-		var metal_click = (randf() * 2.0 - 1.0) * exp(-70.0 * t) * 0.3
-		raw[i] = hiss + clamp_thud + metal_click
-		
-	var filtered = _apply_lowpass(raw, 2400.0)
-	return _build_wav(filtered)
-
-func _synth_order_hold() -> AudioStreamWAV:
-	# Heavy Armored Brace & Mechanical Lock Clank
-	var duration = 0.25
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env = exp(-20.0 * t)
-		var ring1 = sin(t * 520.0 * TAU) * env * 0.5
-		var ring2 = sin(t * 780.0 * TAU) * env * 0.35
-		var sub = sin(t * 110.0 * TAU) * exp(-12.0 * t) * 0.7
-		raw[i] = ring1 + ring2 + sub
-		
-	return _build_wav(raw)
-
-func _synth_order_retreat() -> AudioStreamWAV:
-	# Tactical Retreat Alert Pip & Turbine Reverse
-	var duration = 0.34
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var pip1 = sin(t * 1560.0 * TAU) * exp(-24.0 * t) * 0.5
-		var t2 = max(0.0, t - 0.08)
-		var pip2 = sin(t2 * 1170.0 * TAU) * exp(-20.0 * t2) * 0.55
-		var turbine = sin(t * (300.0 + t * 400.0) * TAU) * exp(-6.0 * t) * 0.35
-		raw[i] = pip1 + pip2 + turbine
-		
-	return _build_wav(raw)
-
-func _synth_war_horn() -> AudioStreamWAV:
-	# Epic Brass War-Horn Fanfare for Combat Surge
-	var duration = 0.85
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var attack = min(1.0, t / 0.08)
-		var decay = exp(-2.8 * t)
-		var env = attack * decay
-		var vib = sin(t * 5.5 * TAU) * 0.015
-		
-		var f1 = (220.0 + vib * 220.0) * TAU
-		var f2 = (330.0 + vib * 330.0) * TAU
-		var f3 = (440.0 + vib * 440.0) * TAU
-		var f4 = (554.0 + vib * 554.0) * TAU
-		
-		var s = sin(t * f1) * 0.45 + sin(t * f2) * 0.35 + sin(t * f3) * 0.25 + sin(t * f4) * 0.15
-		# Brass overdrive saturation
-		s = s + s * s * 0.2
-		raw[i] = s * env * 0.75
-		
-	var filtered = _apply_lowpass(raw, 1800.0)
-	return _build_wav(filtered)
-
-func _synth_turret_crash() -> AudioStreamWAV:
-	# Heavy Flying Turret Ground Slam & Scraping Crunch
-	var duration = 0.45
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var env_impact = exp(-14.0 * t)
-		var env_scrape = exp(-8.0 * t)
-		var thud = sin(t * 78.0 * TAU) * env_impact * 0.8
-		var metal_ring = sin(t * 380.0 * TAU) * exp(-18.0 * t) * 0.4
-		var crunch = (randf() * 2.0 - 1.0) * env_scrape * 0.55
-		raw[i] = thud + metal_ring + crunch
-		
-	var filtered = _apply_lowpass(raw, 850.0)
-	return _build_wav(filtered)
-
-func _synth_hydra_salvo() -> AudioStreamWAV:
-	# Quad Spiraling Hydra Micro-Missile Whistles
-	var duration = 0.48
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var val = 0.0
-		# 4 staggered rocket launches (0ms, 70ms, 140ms, 210ms)
-		for r in range(4):
-			var r_start = float(r) * 0.075
-			if t >= r_start:
-				var rt = t - r_start
-				var renv = exp(-16.0 * rt)
-				var rfreq = (340.0 + rt * 1800.0) * TAU
-				var rwhistle = sin(rt * rfreq) * 0.35
-				var rhiss = (randf() * 2.0 - 1.0) * 0.25
-				val += (rwhistle + rhiss) * renv
-		raw[i] = val * 0.65
-		
-	var filtered = _apply_lowpass(raw, 2400.0)
-	return _build_wav(filtered)
-
-func _synth_cargo_flyby() -> AudioStreamWAV:
-	# Deep Turboprop Cargo Aircraft Flyby Drone
-	var duration = 0.90
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		# Parabolic volume envelope (approaching then departing)
-		var env = sin(clampf(t / duration, 0.0, 1.0) * PI)
-		# Doppler frequency pitch bend
-		var pitch_shift = 1.08 - (t / duration) * 0.16
-		var prop1 = sin(t * 72.0 * pitch_shift * TAU) * 0.5
-		var prop2 = sin(t * 144.0 * pitch_shift * TAU) * 0.35
-		var prop3 = sin(t * 216.0 * pitch_shift * TAU) * 0.2
-		# Propeller blade chop flutter (22 Hz)
-		var flutter = 0.8 + 0.2 * sin(t * 22.0 * TAU)
-		raw[i] = (prop1 + prop2 + prop3) * flutter * env * 0.7
-		
-	var filtered = _apply_lowpass(raw, 650.0)
-	return _build_wav(filtered)
-
-func _synth_mine_detonate() -> AudioStreamWAV:
-	# Heavy Anti-Tank Landmine Crack & Shockwave
-	var duration = 0.42
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var crack = exp(-26.0 * t) * (randf() * 2.0 - 1.0) * 0.85
-		var sub = sin(t * 68.0 * TAU) * exp(-10.0 * t) * 0.75
-		var hollow = sin(t * 280.0 * TAU) * exp(-18.0 * t) * 0.3
-		raw[i] = crack + sub + hollow
-		
-	var filtered = _apply_lowpass(raw, 920.0)
-	return _build_wav(filtered)
-
-func _synth_multi_kill() -> AudioStreamWAV:
-	# High-Tech Tactical Multi-Kill Intercom Tone
-	var duration = 0.28
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var pip1 = sin(t * 880.0 * TAU) * exp(-22.0 * t) * 0.5
-		var t2 = max(0.0, t - 0.08)
-		var pip2 = sin(t2 * 1320.0 * TAU) * exp(-18.0 * t2) * 0.6
-		var radio_hiss = (randf() * 2.0 - 1.0) * exp(-12.0 * t) * 0.08
-		raw[i] = pip1 + pip2 + radio_hiss
-		
-	return _build_wav(raw)
-
-func _synth_radio_squawk() -> AudioStreamWAV:
-	# Tactical VHF Radio Squelch & Mic-Key Click
-	var duration = 0.11
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var click = sin(t * 2600.0 * TAU) * exp(-85.0 * t) * 0.7
-		var hiss = (randf() * 2.0 - 1.0) * sin(clampf(t / duration, 0.0, 1.0) * PI) * 0.35
-		var hum = sin(t * 120.0 * TAU) * 0.12
-		raw[i] = click + hiss + hum
-		
-	var filtered = _apply_lowpass(raw, 3200.0)
-	return _build_wav(filtered)
-
-func _synth_bark_roger() -> AudioStreamWAV:
-	# Procedural Formant Vocal Bark: "RO-GER" over Combat Tactical Radio
-	var duration = 0.32
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var vocal = 0.0
-		# Glottal excitation pulse train (pitch ~120 Hz)
-		var glottal = (fmod(t * 120.0, 1.0) - 0.5) * 2.0
-		
-		# Syllable 1: "RO" (0 to 0.15s) - F1: 520Hz, F2: 1050Hz
-		if t < 0.15:
-			var env1 = sin((t / 0.15) * PI)
-			var f1 = sin(t * 520.0 * TAU) * 0.45
-			var f2 = sin(t * 1050.0 * TAU) * 0.35
-			vocal = glottal * (f1 + f2) * env1
-		# Syllable 2: "GER" (0.16s to 0.31s) - F1: 440Hz, F2: 1750Hz
-		elif t >= 0.16 and t < 0.31:
-			var t_s2 = t - 0.16
-			var env2 = sin((t_s2 / 0.15) * PI)
-			var f1 = sin(t * 440.0 * TAU) * 0.4
-			var f2 = sin(t * 1750.0 * TAU) * 0.45
-			vocal = glottal * (f1 + f2) * env2
-			
-		# RF radio background distortion & hiss
-		var rf_noise = (randf() * 2.0 - 1.0) * 0.08
-		raw[i] = vocal * 0.85 + rf_noise
-		
-	var filtered = _apply_lowpass(raw, 2800.0)
-	return _build_wav(filtered)
-
-func _synth_bark_retreat() -> AudioStreamWAV:
-	# Procedural Formant Vocal Bark: "FALL-BACK" over Combat Tactical Radio
-	var duration = 0.35
-	var count = int(duration * SAMPLE_RATE)
-	var raw = PackedFloat32Array()
-	raw.resize(count)
-	
-	for i in range(count):
-		var t = float(i) / SAMPLE_RATE
-		var vocal = 0.0
-		var glottal = (fmod(t * 135.0, 1.0) - 0.5) * 2.0
-		
-		# Syllable 1: "FALL" (0 to 0.17s) - F1: 650Hz, F2: 1150Hz
-		if t < 0.17:
-			var env1 = sin((t / 0.17) * PI)
-			var f1 = sin(t * 650.0 * TAU) * 0.5
-			var f2 = sin(t * 1150.0 * TAU) * 0.3
-			vocal = glottal * (f1 + f2) * env1
-		# Syllable 2: "BACK" (0.18s to 0.34s) - F1: 720Hz, F2: 1800Hz
-		elif t >= 0.18 and t < 0.34:
-			var t_s2 = t - 0.18
-			var env2 = sin((t_s2 / 0.16) * PI)
-			var f1 = sin(t * 720.0 * TAU) * 0.45
-			var f2 = sin(t * 1800.0 * TAU) * 0.4
-			vocal = glottal * (f1 + f2) * env2
-			
-		var rf_noise = (randf() * 2.0 - 1.0) * 0.09
-		raw[i] = vocal * 0.85 + rf_noise
-		
-	var filtered = _apply_lowpass(raw, 2700.0)
-	return _build_wav(filtered)
-
-# ------------------------------------------------------------------------------
-# Digital Signal Processing (DSP) Filters & WAV Builder
-# ------------------------------------------------------------------------------
-
-func _apply_lowpass(samples: PackedFloat32Array, cutoff_hz: float) -> PackedFloat32Array:
-	var out = PackedFloat32Array()
-	out.resize(samples.size())
-	var rc = 1.0 / (TAU * cutoff_hz)
-	var dt = 1.0 / float(SAMPLE_RATE)
-	var alpha = dt / (rc + dt)
-	var prev = 0.0
-	for i in range(samples.size()):
-		prev = prev + alpha * (samples[i] - prev)
-		out[i] = prev
-	return out
-
-func _build_wav(samples: PackedFloat32Array) -> AudioStreamWAV:
-	var wav = AudioStreamWAV.new()
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = SAMPLE_RATE
-	wav.stereo = false
-	
-	var bytes = PackedByteArray()
-	bytes.resize(samples.size() * 2)
-	for i in range(samples.size()):
-		var s = samples[i]
-		s = clampf(s, -1.0, 1.0)
-		s = s * (1.5 - 0.5 * s * s)
-		s = clampf(s, -0.98, 0.98)
-		var int_val = int(round(s * 32767.0))
-		bytes.encode_s16(i * 2, int_val)
-		
-	wav.data = bytes
-	return wav
+# Backward-compatibility delegates for test runner & direct calls
+func _synth_cannon() -> AudioStreamWAV: return Weapons.synth_cannon()
+func _synth_behemoth_cannon() -> AudioStreamWAV: return Weapons.synth_behemoth_cannon()
+func _synth_rapid_fire() -> AudioStreamWAV: return Weapons.synth_rapid_fire()
+func _synth_shot() -> AudioStreamWAV: return Weapons.synth_shot()
+func _synth_explosion(heavy: bool = false) -> AudioStreamWAV: return Impacts.synth_explosion(heavy)
+func _synth_bridge_collapse() -> AudioStreamWAV: return Impacts.synth_bridge_collapse()
+func _synth_ricochet() -> AudioStreamWAV: return Impacts.synth_ricochet()
+func _apply_lowpass(raw: PackedFloat32Array, cutoff: float) -> PackedFloat32Array: return Helpers.apply_lowpass(raw, cutoff)
+func _build_wav(raw: PackedFloat32Array) -> AudioStreamWAV: return Helpers.build_wav(raw)

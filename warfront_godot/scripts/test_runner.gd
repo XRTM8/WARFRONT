@@ -9,6 +9,18 @@ const SoundSynth = preload("res://scripts/sound_synth.gd")
 const SimAI = preload("res://scripts/sim_ai.gd")
 const SimCommander = preload("res://scripts/sim_commander.gd")
 const SimUnits = preload("res://scripts/sim_units.gd")
+const AudioDSPHelpers = preload("res://scripts/audio_dsp_helpers.gd")
+const AudioWeapons = preload("res://scripts/audio_weapons.gd")
+const AudioImpacts = preload("res://scripts/audio_impacts.gd")
+const AudioComms = preload("res://scripts/audio_comms.gd")
+const AudioUI = preload("res://scripts/audio_ui.gd")
+const MapGenLarge = preload("res://scripts/map_gen_large.gd")
+const MapGenStandard = preload("res://scripts/map_gen_standard.gd")
+const SimUnitSpawner = preload("res://scripts/sim_unit_spawner.gd")
+const SimUnitAbilities = preload("res://scripts/sim_unit_abilities.gd")
+const SimUnitMovement = preload("res://scripts/sim_unit_movement.gd")
+const SimUnitCommands = preload("res://scripts/sim_unit_commands.gd")
+const SimHazards = preload("res://scripts/sim_hazards.gd")
 
 func _init() -> void:
 	print("--- Running WarFront Godot Automated Verification Tests ---")
@@ -28,6 +40,7 @@ func _init() -> void:
 	test_tactical_controls_and_asymmetry_overhaul()
 	test_large_map_and_multi_team_alliance()
 	test_multi_agent_ai_and_ffa_survival()
+	test_modular_architecture_and_subsystems()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -739,4 +752,81 @@ func test_multi_agent_ai_and_ffa_survival() -> void:
 	assert(sim.phase == "gameover" and sim.outcome == "defeat", "Destruction of player HQ must result in military defeat")
 	
 	print("✔ Test 15: Autonomous Multi-Agent AI & 4-Way FFA / Survival Engine passed.")
+
+func test_modular_architecture_and_subsystems() -> void:
+	# 1. Direct DSP Submodules Verification
+	var stream_cannon = AudioWeapons.synth_cannon()
+	assert(stream_cannon != null and stream_cannon.data.size() > 0, "AudioWeapons direct synthesis must output valid WAV stream")
+	
+	var stream_explosion = AudioImpacts.synth_explosion()
+	assert(stream_explosion != null and stream_explosion.data.size() > 0, "AudioImpacts direct synthesis must output valid WAV stream")
+	
+	var stream_squawk = AudioComms.synth_radio_squawk()
+	assert(stream_squawk != null and stream_squawk.data.size() > 0, "AudioComms direct synthesis must output valid WAV stream")
+	
+	var stream_ui = AudioUI.synth_unit_select()
+	assert(stream_ui != null and stream_ui.data.size() > 0, "AudioUI direct synthesis must output valid WAV stream")
+	
+	# Audio Facade equivalence
+	var synth = SoundSynth.new()
+	synth.initialize()
+	assert(synth._sounds.has("cannon") and synth._sounds["cannon"].data.size() == stream_cannon.data.size(), "SoundSynth facade must delegate to AudioWeapons identically")
+
+	# 2. Map Generation Modular Engines
+	var large_map = MapGenLarge.generate("basra", 5541)
+	assert(large_map["width"] == 4800 and large_map["height"] == 2880, "MapGenLarge must generate theater at 4800x2880 scale")
+	assert(large_map["hqs"].size() == 4, "MapGenLarge must initialize 4 tactical quadrant HQs")
+	
+	var std_map = MapGenStandard.generate("kirkuk", 5541)
+	assert(std_map["width"] == 3456 and std_map["height"] == 1920, "MapGenStandard must generate theater at 3456x1920 scale")
+	assert(std_map["rigs"].size() == 8, "MapGenStandard must generate 8 oilfield rigs")
+	
+	# MapGen Facade equivalence
+	var dispatched_large = MapGen.generate_map("basra", 5541)
+	assert(dispatched_large["width"] == 4800, "MapGen facade must delegate 'basra' to MapGenLarge")
+	var dispatched_std = MapGen.generate_map("kirkuk", 5541)
+	assert(dispatched_std["width"] == 3456, "MapGen facade must delegate 'kirkuk' to MapGenStandard")
+
+	# 3. Unit Systems Submodules & Facade
+	var sim = Simulation.new("kirkuk", 1019)
+	var initial_u_count = sim.units.size()
+	
+	# Direct Spawner submodule
+	var spawned_u = SimUnitSpawner.spawn_unit(sim, "player", "behemoth", 400.0, 400.0)
+	assert(sim.units.size() == initial_u_count + 1, "SimUnitSpawner must register new unit into simulation")
+	assert(spawned_u["kind"] == "behemoth" and spawned_u["hp"] > 0, "SimUnitSpawner must initialize unit properties correctly")
+	
+	# Direct Abilities submodule
+	sim.player_oil = 300.0
+	var mine_armed = SimUnitAbilities.deploy_landmine_at(sim, "player", Vector2(450.0, 450.0))
+	assert(mine_armed and sim.landmines.size() > 0, "SimUnitAbilities must deploy and arm proximity landmine")
+	
+	# Direct Movement & Formations submodule
+	var dummy_units: Array[Dictionary] = [
+		{ "id": 101, "kind": "tank", "x": 100.0, "y": 100.0 },
+		{ "id": 102, "kind": "scout", "x": 110.0, "y": 100.0 },
+		{ "id": 103, "kind": "artillery", "x": 90.0, "y": 100.0 }
+	]
+	var slots = SimUnitMovement.calculate_formation_positions(dummy_units, Vector2(600.0, 600.0))
+	assert(slots.has(101) and slots.has(102) and slots.has(103), "SimUnitMovement must assign tactical echelon formation slots")
+	
+	# Direct Commands submodule
+	spawned_u["selected"] = true
+	var selected_combat = SimUnitCommands.get_selected_player_combat_units(sim)
+	assert(selected_combat.size() > 0, "SimUnitCommands must query selected combat forces")
+	
+	# Direct Hazards submodule
+	sim.napalm_patches.push_back({
+		"x": 300.0, "y": 300.0, "radius": 40.0, "life": 1.0, "faction": "player"
+	})
+	var patch_count = sim.napalm_patches.size()
+	SimHazards.update_hazards(sim, 1.5) # Expire napalm patch
+	assert(sim.napalm_patches.size() < patch_count, "SimHazards must tick and remove expired napalm hazard zones")
+	
+	# SimUnits Facade equivalence
+	var facade_spawn = SimUnits.spawn_unit(sim, "player", "tank", 500.0, 500.0)
+	assert(facade_spawn["kind"] == "tank", "SimUnits facade must transparently delegate to SimUnitSpawner")
+
+	print("✔ Test 16: Strict modular architecture & submodule facade integrity passed.")
+
 
