@@ -1,0 +1,22 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/renderer_2d.gd" id="2_renderer"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="3_hud"]
+[ext_resource type="Script" path="res://scripts/sound_synth.gd" id="4_sound"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(300, 300)
+zoom = Vector2(0.85, 0.85)
+
+[node name="Renderer2D" type="Node2D" parent="."]
+script = ExtResource("2_renderer")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("3_hud")
+
+[node name="SoundSynth" type="Node" parent="."]
+script = ExtResource("4_sound")
