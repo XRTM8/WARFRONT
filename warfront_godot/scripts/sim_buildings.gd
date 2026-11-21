@@ -3,6 +3,7 @@ extends RefCounted
 
 const Constants = preload("res://scripts/constants.gd")
 const Pathfinding = preload("res://scripts/pathfinding.gd")
+const SimBuildingSystems = preload("res://scripts/sim_building_systems.gd")
 
 static func can_place_structure(sim, kind: String, x: float, y: float, faction: String = "player") -> bool:
 	if not Constants.BUILDING_SPECS.has(kind):
@@ -86,7 +87,7 @@ static func can_place_structure(sim, kind: String, x: float, y: float, faction: 
 
 	return in_range
 
-static func place_structure(sim, kind: String, x: float, y: float, faction: String = "player") -> bool:
+static func place_structure(sim, kind: String, x: float, y: float, faction: String = "player", angle: float = -999.0) -> bool:
 	if not can_place_structure(sim, kind, x, y, faction):
 		if faction == "player":
 			sim.push_event("invalid_placement", "warn")
@@ -105,17 +106,23 @@ static func place_structure(sim, kind: String, x: float, y: float, faction: Stri
 			return false
 		sim.enemy_oil -= cost
 
+	var rot = sim.build_rotation if angle < -100.0 else angle
+	var is_rotated = abs(fmod(rot, PI)) > 0.4
+	var w = spec["height"] if is_rotated else spec["width"]
+	var h = spec["width"] if is_rotated else spec["height"]
+
 	var struct = {
 		"id": randi(),
 		"kind": kind,
 		"faction": faction,
 		"x": x,
 		"y": y,
+		"angle": rot,
 		"hp": spec["hp"] * 0.25, # starts at partial hp while under construction
 		"maxHp": spec["hp"],
 		"radius": spec["radius"],
-		"width": spec["width"],
-		"height": spec["height"],
+		"width": w,
+		"height": h,
 		"status": "constructing",
 		"build_progress": 0.0,
 		"build_time": spec["build_time"],
@@ -132,6 +139,12 @@ static func place_structure(sim, kind: String, x: float, y: float, faction: Stri
 		
 	return true
 
+static func decommission_structure(sim, structure_id: int, faction: String = "player") -> bool:
+	return SimBuildingSystems.decommission_structure(sim, structure_id, faction)
+
+static func trigger_emergency_repair(sim, structure_id: int, faction: String = "player") -> bool:
+	return SimBuildingSystems.trigger_emergency_repair(sim, structure_id, faction)
+
 static func update_structures(sim, dt: float) -> void:
 	for i in range(sim.structures.size() - 1, -1, -1):
 		var s = sim.structures[i]
@@ -139,6 +152,8 @@ static func update_structures(sim, dt: float) -> void:
 			s["hitFlash"] = max(0.0, s["hitFlash"] - dt)
 		if s.get("cooldown", 0.0) > 0.0:
 			s["cooldown"] = max(0.0, s["cooldown"] - dt)
+			
+		SimBuildingSystems.update_building_damage_fx(sim, s, dt)
 			
 		# 1. Construction Progress
 		if s["status"] == "constructing":

@@ -7,6 +7,7 @@ const SoundSynth = preload("res://scripts/sound_synth.gd")
 const Simulation = preload("res://scripts/simulation.gd")
 const Pathfinding = preload("res://scripts/pathfinding.gd")
 const Constants = preload("res://scripts/constants.gd")
+const SimFormationSteering = preload("res://scripts/sim_formation_steering.gd")
 
 @onready var camera: Camera2D = $Camera2D
 @onready var renderer: WarFrontRenderer2D = $Renderer2D
@@ -18,6 +19,8 @@ var sim: Simulation = null
 var is_dragging_select: bool = false
 var drag_start_world: Vector2 = Vector2.ZERO
 var drag_start_screen: Vector2 = Vector2.ZERO
+var is_holding_right_click: bool = false
+var right_click_down_pos: Vector2 = Vector2.ZERO
 
 var camera_speed: float = 650.0
 var base_camera_pos: Vector2 = Vector2.ZERO
@@ -233,8 +236,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_Y:
 			var m_pos = get_global_mouse_position()
 			sim.set_player_rally_point(m_pos.x, m_pos.y)
+		elif event.keycode == KEY_TAB:
+			SimFormationSteering.cycle_sub_selection(sim, Input.is_key_pressed(KEY_SHIFT))
 		elif event.keycode == KEY_R:
-			_on_micro_action_requested("retreat")
+			if sim.build_mode != "none":
+				sim.build_rotation = fposmod(sim.build_rotation + PI * 0.5, TAU)
+				sound.play_sound("order_click")
+			else:
+				_on_micro_action_requested("retreat")
+		elif event.keycode == KEY_DELETE or event.keycode == KEY_BACKSPACE:
+			var m_pos = get_global_mouse_position()
+			for s in sim.structures:
+				if s["faction"] == "player" and Vector2(s["x"], s["y"]).distance_to(m_pos) <= s.get("radius", 32.0) + 12.0:
+					sim.decommission_structure(s["id"])
+					break
+		elif event.keycode == KEY_E:
+			var m_pos = get_global_mouse_position()
+			for s in sim.structures:
+				if s["faction"] == "player" and Vector2(s["x"], s["y"]).distance_to(m_pos) <= s.get("radius", 32.0) + 12.0:
+					sim.trigger_emergency_repair(s["id"])
+					break
 		elif event.keycode == KEY_F:
 			_on_micro_action_requested("ability")
 		elif event.keycode == KEY_T:
@@ -376,32 +397,49 @@ func _unhandled_input(event: InputEvent) -> void:
 					if sel_count > 0:
 						sound.play_sound("order_click")
 					
-		# Right Click: Command Order (Move, Attack, Demolish) or Cancel Targeting/Build/Attack-Move Mode
-		elif event.button_index == MOUSE_BUTTON_RIGHT and event.is_pressed():
-			if sim.has_meta("rally_targeting_category") and sim.get_meta("rally_targeting_category") != "":
-				sim.set_meta("rally_targeting_category", "")
-				return
-			if sim.commander_targeting_power != "":
-				sim.commander_targeting_power = ""
-				return
-			if sim.build_mode != "none":
-				sim.build_mode = "none"
-				return
-			if sim.attack_move_mode:
-				sim.attack_move_mode = false
-				return
+		# Right Click: Command Order or Drag-to-Face Combat Orientation
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			var world_pos = get_global_mouse_position()
-			var shift = Input.is_key_pressed(KEY_SHIFT)
-			var issued = sim.issue_player_command(world_pos.x, world_pos.y, shift)
-			if issued:
-				sound.play_sound("order_click")
+			if event.is_pressed():
+				if sim.has_meta("rally_targeting_category") and sim.get_meta("rally_targeting_category") != "":
+					sim.set_meta("rally_targeting_category", "")
+					return
+				if sim.commander_targeting_power != "":
+					sim.commander_targeting_power = ""
+					return
+				if sim.build_mode != "none":
+					sim.build_mode = "none"
+					return
+				if sim.attack_move_mode:
+					sim.attack_move_mode = false
+					return
+				is_holding_right_click = true
+				right_click_down_pos = world_pos
 			else:
-				# If no combat units were selected, set base Rally Point!
-				sim.set_player_rally_point(world_pos.x, world_pos.y)
+				if renderer.is_dragging_to_face:
+					renderer.is_dragging_to_face = false
+					is_holding_right_click = false
+					SimFormationSteering.apply_drag_to_face(sim, right_click_down_pos, world_pos)
+					sound.play_sound("order_click")
+				elif is_holding_right_click:
+					is_holding_right_click = false
+					var shift = Input.is_key_pressed(KEY_SHIFT)
+					var issued = sim.issue_player_command(world_pos.x, world_pos.y, shift)
+					if issued:
+						sound.play_sound("order_click")
+					else:
+						sim.set_player_rally_point(world_pos.x, world_pos.y)
 
 	elif event is InputEventMouseMotion:
 		var world_pos = get_global_mouse_position()
 		renderer.hover_world_pos = world_pos
+		
+		# Drag to face line formation check
+		if is_holding_right_click and not is_dragging_pan:
+			if (world_pos - right_click_down_pos).length() > 20.0:
+				renderer.is_dragging_to_face = true
+				renderer.drag_to_face_start = right_click_down_pos
+				renderer.drag_to_face_end = world_pos
 		
 		# Middle mouse drag panning
 		if is_dragging_pan:

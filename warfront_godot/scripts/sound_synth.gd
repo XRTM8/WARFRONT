@@ -6,6 +6,7 @@ const Weapons = preload("res://scripts/audio_weapons.gd")
 const Impacts = preload("res://scripts/audio_impacts.gd")
 const Comms = preload("res://scripts/audio_comms.gd")
 const UI = preload("res://scripts/audio_ui.gd")
+const Soundscape = preload("res://scripts/audio_soundscape.gd")
 
 const SAMPLE_RATE: int = 44100
 const POOL_SIZE: int = 16
@@ -64,6 +65,8 @@ func _generate_all_sounds() -> void:
 	# 3. Comms, Radio & Flybys
 	_sounds["airstrike_jet"] = Comms.synth_airstrike_jet()
 	_sounds["siren"] = Comms.synth_siren()
+	_sounds["distant_thunder"] = Soundscape.synth_distant_thunder()
+	_sounds["radio_chatter"] = Soundscape.synth_radio_transmission()
 	_sounds["recon_ping"] = Comms.synth_recon_ping()
 	_sounds["war_horn"] = Comms.synth_war_horn()
 	_sounds["cargo_flyby"] = Comms.synth_cargo_flyby()

@@ -2,8 +2,8 @@ class_name SimCombat
 extends RefCounted
 
 const Constants = preload("res://scripts/constants.gd")
-const SimHazards = preload("res://scripts/sim_hazards.gd")
 const Pathfinding = preload("res://scripts/pathfinding.gd")
+const SimArmorPhysics = preload("res://scripts/sim_armor_physics.gd")
 
 static func award_unit_xp(sim, unit: Dictionary, amount: float) -> bool:
 	if not unit["alive"] or unit["kind"] == "truck" or amount <= 0.0:
@@ -36,7 +36,6 @@ static func award_unit_xp(sim, unit: Dictionary, amount: float) -> bool:
 	var rank_tag = "[R-%d]" % target_rank
 	sim.spawn_floating_text(unit["x"], unit["y"] - unit["radius"] - 16.0, "%s %s" % [rank_tag, next_rank_spec["badgeLabel"]], Color("#ffd659"), 1.5)
 	sim.spawn_burst(unit["x"], unit["y"], "spark", 10, Color("#ffe37d"), 75.0)
-	
 	if unit["faction"] == "player":
 		sim.sound_triggered.emit("promotion")
 		if sim.phase == "playing":
@@ -78,7 +77,6 @@ static func fire_projectile(sim, attacker: Dictionary, target_pos: Vector2) -> v
 	var bridge_bonus = 1.0
 	if Constants.UNIT_SPECS.has(attacker.get("kind", "")):
 		bridge_bonus = Constants.UNIT_SPECS[attacker["kind"]].get("bridgeBonus", 1.0)
-	
 	sim.projectiles.push_back({
 		"id": sim.next_projectile_id,
 		"sourceUnitId": attacker.get("id", -1),
@@ -144,7 +142,8 @@ static func detonate_projectile(sim, p: Dictionary) -> void:
 		if u["alive"] and sim.are_hostile(p, u):
 			var d = Vector2(u["x"], u["y"]).distance_to(Vector2(p["x"], p["y"]))
 			if d <= radius + u["radius"]:
-				damage_unit(sim, u, p["damage"], attacker_unit)
+				var impact = SimArmorPhysics.resolve_armor_impact(sim, u, p)
+				damage_unit(sim, u, impact["damage"], attacker_unit)
 				
 	# Damage hostile HQs
 	var all_hqs = sim.map.get("hqs", [sim.map["enemyHQ"], sim.map["playerHQ"]])
@@ -297,13 +296,4 @@ static func damage_bridge(sim, bridge: Dictionary, amount: float, attacker_facti
 		if attacker_unit != null and attacker_unit.get("alive", false):
 			award_unit_xp(sim, attacker_unit, Constants.XP_BRIDGE_DEMOLISH)
 		sim.reroute_stranded_trucks()
-
-static func update_flying_turrets(sim, dt: float) -> void:
-	SimHazards.update_flying_turrets(sim, dt)
-
-static func update_napalm_patches(sim, dt: float) -> void:
-	SimHazards.update_napalm_patches(sim, dt)
-
-static func update_landmines(sim, dt: float) -> void:
-	SimHazards.update_landmines(sim, dt)
 

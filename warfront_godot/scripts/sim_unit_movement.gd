@@ -3,6 +3,7 @@ extends RefCounted
 
 const Constants = preload("res://scripts/constants.gd")
 const Pathfinding = preload("res://scripts/pathfinding.gd")
+const SimFormationSteering = preload("res://scripts/sim_formation_steering.gd")
 
 static func calculate_formation_positions(selected: Array[Dictionary], target_pos: Vector2) -> Dictionary:
 	var positions: Dictionary = {}
@@ -147,6 +148,9 @@ static func update_waypoint_movement(sim, u: Dictionary, dt: float, is_airborne:
 			else:
 				var cand_x = u["x"] + dir.x * move_step
 				var cand_y = u["y"] + dir.y * move_step
+				var funneled = SimFormationSteering.constrain_bridge_funnel(sim.map, u, Vector2(cand_x, cand_y), goal_vec)
+				cand_x = funneled.x
+				cand_y = funneled.y
 				
 				if Pathfinding.is_point_passable_for_land(sim.map, cand_x, cand_y):
 					u["x"] = cand_x

@@ -13,11 +13,15 @@ const RenderUnits = preload("res://scripts/render_units.gd")
 const RenderFX = preload("res://scripts/render_fx.gd")
 const SimBuildings = preload("res://scripts/sim_buildings.gd")
 const RenderGhostFormation = preload("res://scripts/render_ghost_formation.gd")
+const RenderPolishEffects = preload("res://scripts/render_polish_effects.gd")
 
 var sim: Simulation = null
 var terrain_texture: ImageTexture = null
 var selection_box: Rect2 = Rect2()
 var is_dragging_selection: bool = false
+var is_dragging_to_face: bool = false
+var drag_to_face_start: Vector2 = Vector2.ZERO
+var drag_to_face_end: Vector2 = Vector2.ZERO
 var hover_world_pos: Vector2 = Vector2.ZERO
 
 var default_font: Font = null
@@ -112,6 +116,7 @@ func _draw() -> void:
 	for s in sim.structures:
 		if view_rect.has_point(Vector2(s["x"], s["y"])):
 			RenderStructures.draw_structure(self, default_font, s, pal, sim.sim_time)
+			RenderPolishEffects.draw_building_damage_state(self, s, sim.sim_time)
 	
 	# 9. Rally Point Beacon
 	if sim.player_rally_point != Vector2.ZERO:
@@ -142,6 +147,7 @@ func _draw() -> void:
 	for u in sim.units:
 		if u.get("alive", false) and view_rect.has_point(Vector2(u["x"], u["y"])):
 			RenderUnits.draw_unit(self, default_font, u, sim.sim_time)
+	RenderPolishEffects.draw_dynamic_muzzle_lights(self, sim.units)
 			
 	# 17. Projectiles
 	for pr in sim.projectiles:
@@ -158,6 +164,8 @@ func _draw() -> void:
 	# 20. Floating Popups & Drag Selection Box
 	RenderFX.draw_floating_popups(self, default_font, sim.floating_popups)
 	RenderFX.draw_selection_box(self, selection_box, is_dragging_selection)
+	if is_dragging_to_face:
+		RenderPolishEffects.draw_drag_to_face_arrow(self, default_font, drag_to_face_start, drag_to_face_end, sim.sim_time)
 
 	# 21. Ghost Placement Hologram
 	if sim.build_mode != "none" and Constants.BUILDING_SPECS.has(sim.build_mode):
@@ -167,8 +175,10 @@ func _draw() -> void:
 		var holo_col = Color(0.25, 0.95, 0.35, 0.38) if valid else Color(0.95, 0.25, 0.25, 0.38)
 		var border_col = Color(0.35, 1.0, 0.45, 0.85) if valid else Color(1.0, 0.3, 0.3, 0.85)
 		
-		var hw: float = b_spec["width"]
-		var hh: float = b_spec["height"]
+		var rot = sim.build_rotation
+		var is_rotated = abs(fmod(rot, PI)) > 0.4
+		var hw: float = b_spec["height"] if is_rotated else b_spec["width"]
+		var hh: float = b_spec["width"] if is_rotated else b_spec["height"]
 		draw_rect(Rect2(m_pos.x - hw * 0.5, m_pos.y - hh * 0.5, hw, hh), holo_col)
 		draw_rect(Rect2(m_pos.x - hw * 0.5, m_pos.y - hh * 0.5, hw, hh), border_col, false, 2.0)
 		draw_circle(m_pos, b_spec["radius"], Color(border_col.r, border_col.g, border_col.b, 0.12))

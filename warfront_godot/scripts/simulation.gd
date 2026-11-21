@@ -11,6 +11,9 @@ const SimUnits = preload("res://scripts/sim_units.gd")
 const SimCommander = preload("res://scripts/sim_commander.gd")
 const SimBuildings = preload("res://scripts/sim_buildings.gd")
 const SimProductionQueue = preload("res://scripts/sim_production_queue.gd")
+const SimHazards = preload("res://scripts/sim_hazards.gd")
+const SimAITactics = preload("res://scripts/sim_ai_tactics.gd")
+const SimBuildingSystems = preload("res://scripts/sim_building_systems.gd")
 
 signal event_pushed(key: String, tone: String)
 signal sound_triggered(sfx_name: String)
@@ -75,6 +78,7 @@ var hitstop_timer: float = 0.0
 var bridges_destroyed_by_player: int = 0
 var enemy_trucks_destroyed: int = 0
 var build_mode: String = "none" # "none", "turret"
+var build_rotation: float = 0.0
 var attack_move_mode: bool = false
 var order_pulse: Dictionary = {} # { x, y, color, timer }
 var fog_of_war_enabled: bool = false
@@ -317,9 +321,9 @@ func step(dt: float) -> void:
 	SimProductionQueue.tick_production(self, dt)
 	SimCombat.update_projectiles(self, dt)
 	SimCommander.update_commander(self, dt)
-	SimCombat.update_flying_turrets(self, dt)
-	SimCombat.update_napalm_patches(self, dt)
-	SimCombat.update_landmines(self, dt)
+	SimHazards.update_flying_turrets(self, dt)
+	SimHazards.update_napalm_patches(self, dt)
+	SimHazards.update_landmines(self, dt)
 	SimCommander.update_airdrop_crates(self, dt)
 	SimCommander.update_cargo_shadows(self, dt)
 	
@@ -330,6 +334,7 @@ func step(dt: float) -> void:
 			_spawn_ambient_airdrop()
 			
 		SimAI.update_enemy_ai(self, dt)
+		SimAITactics.update_coordinated_assault(self, dt)
 		SimAI.check_win_loss(self)
 
 func _spawn_ambient_airdrop() -> void:
@@ -427,6 +432,12 @@ func place_player_turret(x: float, y: float) -> bool:
 
 func place_player_structure(kind: String, x: float, y: float) -> bool:
 	return SimBuildings.place_structure(self, kind, x, y, "player")
+
+func decommission_structure(structure_id: int, faction: String = "player") -> bool:
+	return SimBuildingSystems.decommission_structure(self, structure_id, faction)
+
+func trigger_emergency_repair(structure_id: int, faction: String = "player") -> bool:
+	return SimBuildingSystems.trigger_emergency_repair(self, structure_id, faction)
 
 func rebuild_bridge(bridge_id: String, faction: String = "player") -> bool:
 	return SimUnits.rebuild_bridge(self, bridge_id, faction)

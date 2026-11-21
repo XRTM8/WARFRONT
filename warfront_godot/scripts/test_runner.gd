@@ -29,6 +29,9 @@ const RenderFogOfWar = preload("res://scripts/render_fog_of_war.gd")
 const MapGenValidator = preload("res://scripts/map_gen_validator.gd")
 const MapGenBlueprint = preload("res://scripts/map_gen_blueprint.gd")
 const MapGenArchetypes = preload("res://scripts/map_gen_archetypes.gd")
+const SimKinematics = preload("res://scripts/sim_kinematics.gd")
+const SimArmorPhysics = preload("res://scripts/sim_armor_physics.gd")
+const SimFormationSteering = preload("res://scripts/sim_formation_steering.gd")
 
 func _init() -> void:
 	print("--- Running WarFront Godot Automated Verification Tests ---")
@@ -52,6 +55,7 @@ func _init() -> void:
 	test_world_and_maps_2_visual_systems()
 	test_map_generation_engine_2_and_stress_test()
 	test_combined_arms_production_and_gated_queues()
+	test_polish_kinematics_ballistics_and_base_systems()
 	
 	print("--- ALL GODOT VERIFICATION TESTS PASSED SUCCESSFULLY! ---")
 	quit(0)
@@ -987,6 +991,107 @@ func test_combined_arms_production_and_gated_queues() -> void:
 	assert(boat["is_naval"] == true, "Patrol boat must be flagged as naval vessel")
 
 	print("✔ Test 19: Combined Arms Production, Queues, Waypoint Gating & Speed Stacking passed.")
+
+func test_polish_kinematics_ballistics_and_base_systems() -> void:
+	var sim = Simulation.new("kirkuk", 45678)
+	
+	# 1. Turret Mechanical Slew Rate & Kinematics
+	var behemoth = sim.spawn_unit("player", "behemoth", 500.0, 500.0)
+	behemoth["turretAngle"] = 0.0
+	behemoth["targetTurretAngle"] = PI * 0.5 # 90 degree turn
+	SimKinematics.update_unit_kinematics(behemoth, 0.1)
+	assert(behemoth["turretAngle"] > 0.0 and behemoth["turretAngle"] < PI * 0.5, "Turret must rotate at physical slew rate, not snap instantly")
+	assert(behemoth.has("turret_speed"), "Unit must record mechanical slew speed")
+	
+	# 2. Chassis Suspension Dynamics
+	behemoth["was_moving"] = true
+	behemoth["targetPos"] = null # Sudden brake!
+	SimKinematics.update_unit_kinematics(behemoth, 0.05)
+	assert(behemoth.get("suspensionPitch", 0.0) < 0.0, "Sudden braking must cause chassis nose dip")
+	
+	# 3. Aircraft Aerodynamic Banking
+	var jet = sim.spawn_unit("player", "jet_interceptor", 600.0, 600.0)
+	jet["angle"] = PI * 0.5
+	jet["prev_flight_angle"] = 0.0 # sharp turn
+	SimKinematics.update_unit_kinematics(jet, 0.05)
+	assert(abs(jet.get("rollAngle", 0.0)) > 0.05, "Sharp aerial turning must generate aerodynamic roll banking")
+	
+	# 4. Ballistics: Armor Ricochet vs Rear Engine Penetration
+	var tank = sim.spawn_unit("player", "tank", 800.0, 800.0)
+	tank["angle"] = 0.0 # Facing +X
+	# Frontal glancing projectile hitting at oblique angle
+	var glancing_shell = { "kind": "shell", "damage": 50.0, "vx": -1.0, "vy": 0.6 }
+	var impact_front = SimArmorPhysics.resolve_armor_impact(sim, tank, glancing_shell)
+	assert(impact_front["ricochet"] == true, "Glancing frontal impact must trigger armor ricochet")
+	assert(impact_front["damage"] == 5, "Ricochet must reduce shell damage to 10% (5 dmg)")
+	
+	# Rear impact on engine deck
+	var rear_shell = { "kind": "shell", "damage": 50.0, "vx": 1.0, "vy": 0.0 }
+	var impact_rear = SimArmorPhysics.resolve_armor_impact(sim, tank, rear_shell)
+	assert(impact_rear["rear_hit"] == true, "Incoming shell from rear must penetrate engine deck")
+	assert(impact_rear["damage"] == 70, "Rear penetration must deal +40% critical damage (70 dmg)")
+	
+	# 5. Base Building: Decommissioning & Emergency Repair
+	sim.player_oil = 100
+	var factory_spec = Constants.BUILDING_SPECS["war_factory"]
+	var factory = {
+		"id": 8801,
+		"kind": "war_factory",
+		"faction": "player",
+		"status": "ready",
+		"hp": 300.0,
+		"maxHp": 650.0,
+		"x": 400.0,
+		"y": 400.0,
+		"width": 64.0,
+		"height": 64.0
+	}
+	sim.structures.push_back(factory)
+	
+	# Emergency Repair
+	var rep_ok = sim.trigger_emergency_repair(8801, "player")
+	assert(rep_ok == true, "Emergency repair must succeed on damaged structure")
+	assert(factory["hp"] == 460.0, "Emergency repair must restore +160 HP")
+	assert(sim.player_oil == 65, "Emergency repair must deduct 35 oil (100 -> 65)")
+	
+	# Decommissioning
+	var decom_ok = sim.decommission_structure(8801, "player")
+	assert(decom_ok == true, "Decommissioning must succeed on allied structure")
+	var refund_amt = int(factory_spec["cost"] * 0.5)
+	assert(sim.player_oil == 65 + refund_amt, "Decommissioning must refund 50% oil")
+	var found = false
+	for s in sim.structures:
+		if s["id"] == 8801:
+			found = true
+	assert(not found, "Decommissioned structure must be removed from simulation")
+	
+	# 6. Drag-to-face line formation assignment
+	var t1 = sim.spawn_unit("player", "tank", 400.0, 500.0)
+	var t2 = sim.spawn_unit("player", "tank", 420.0, 500.0)
+	t1["selected"] = true
+	t2["selected"] = true
+	var start_drag = Vector2(500.0, 500.0)
+	var end_drag = Vector2(600.0, 500.0) # Dragging eastward
+	var drag_ok = SimFormationSteering.apply_drag_to_face(sim, start_drag, end_drag)
+	assert(drag_ok == true, "Drag-to-face must successfully assign orders to selected units")
+	assert(t1["targetPos"] != null and t2["targetPos"] != null, "Units must receive destination points")
+	assert(t1["targetAngle"] == 0.0, "Units facing angle must align with east drag direction")
+	
+	# 7. Sub-selection cycling with Tab
+	var sc = sim.spawn_unit("player", "scout", 450.0, 500.0)
+	sc["selected"] = true
+	var cycled_1 = SimFormationSteering.cycle_sub_selection(sim)
+	assert(cycled_1 != "", "Tab cycling must select first distinct unit kind")
+	var selected_kinds: Array[String] = []
+	for u in sim.units:
+		if u["alive"] and u["faction"] == "player" and u.get("selected", false):
+			var k = u["kind"]
+			if not selected_kinds.has(k):
+				selected_kinds.push_back(k)
+	assert(selected_kinds.size() == 1, "Sub-selection cycle must filter selection to exactly one unit category")
+	
+	print("✔ Test 20: Kinematics, Armor Physics, Base Decom/Repair, Drag-to-Face & Sub-selection passed.")
+
 
 
 

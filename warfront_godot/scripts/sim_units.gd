@@ -11,6 +11,7 @@ const SimUnitMovement = preload("res://scripts/sim_unit_movement.gd")
 const SimUnitCommands = preload("res://scripts/sim_unit_commands.gd")
 const SimNaval = preload("res://scripts/sim_naval.gd")
 const SimAircraft = preload("res://scripts/sim_aircraft.gd")
+const SimKinematics = preload("res://scripts/sim_kinematics.gd")
 
 # ------------------------------------------------------------------------------
 # Facade Delegations: Spawning & Recruitment
@@ -174,23 +175,21 @@ static func update_combat_unit(sim, u: Dictionary, dt: float) -> void:
 	# 4. Waypoint & Movement Execution
 	SimUnitMovement.update_waypoint_movement(sim, u, dt, is_airborne, cur_vec, is_holding_fire_position)
 
-	# 5. Combat Engagement & Smooth Turret Traversal
+	# 5. Combat Engagement & Mechanical Turret Slew / Kinematics
+	if enemy_target != null:
+		var target_pos = Vector2(enemy_target["x"], enemy_target["y"])
+		var desired_aim = (target_pos - Vector2(u["x"], u["y"])).angle()
+		u["targetTurretAngle"] = desired_aim
+	elif u.get("targetPos") != null:
+		u["targetTurretAngle"] = u.get("angle", 0.0)
+
+	SimKinematics.update_unit_kinematics(u, dt)
+
 	if u["range"] <= 0.0 or enemy_target == null:
 		return
 		
 	var target_pos = Vector2(enemy_target["x"], enemy_target["y"])
 	var desired_aim = (target_pos - Vector2(u["x"], u["y"])).angle()
-	
-	var max_rot = 8.5 * dt
-	if u["kind"] == "behemoth":
-		max_rot = 3.6 * dt
-	elif u["kind"] == "scout":
-		max_rot = 14.0 * dt
-	elif u["kind"] == "artillery":
-		max_rot = 4.8 * dt
-		
-	u["turretAngle"] = rotate_toward(u["turretAngle"], desired_aim, max_rot)
-	
 	var angle_diff = abs(angle_difference(u["turretAngle"], desired_aim))
 	if angle_diff < 0.38:
 		if u["cooldown"] <= 0.0:
